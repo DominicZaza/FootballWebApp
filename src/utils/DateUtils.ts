@@ -1,0 +1,26 @@
+// Format date
+export const formatDate = (dateString: string, isMobile: boolean) => {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+
+    // Mobile users get a shorter, more compact format
+    const options = isMobile
+        ? {
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }
+        : {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        };
+
+    return date.toLocaleString('en-US', options);
+};
