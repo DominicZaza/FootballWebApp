@@ -127,7 +127,7 @@ const MyGamesPage = () => {
                     alt={`${teamName} logo`}
                     style={{width: 24, height: 24, objectFit: 'contain'}}
                 />
-                <Chip label={teamName} color={color} variant="outlined" size="small"/>
+                <span color="color"> {teamName}</span>
                 {isUserPick && getPickIcon(status)}
                 {record && (<Chip label={record} color={color} variant="outlined" size="small"/>)}
                 {streak && (<Chip label={streak} color={color} variant="outlined" size="small"/>)}

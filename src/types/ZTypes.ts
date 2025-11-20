@@ -138,5 +138,6 @@ export interface LeaderBoardDTO {
     away_rank: number;
     home_logo: string;
     away_logo: string;
+    rankType: string;
 }
 
