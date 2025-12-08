@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
     AppBar,
     Box,
@@ -26,15 +26,18 @@ import {auth} from '../components/firebase.js';
 import {useZAppContext} from '../components/AppContextProvider.tsx';
 import {useRestApi} from '../api/RestInvocations.ts';
 import GameScoresPage from './GameScoresPage.tsx';
-import MyGamesPage from './MyGamesPage.tsx';
+import AssignedGamesPage from './AssignedGamesPage.tsx';
 import LeaderboardPage from './LeaderboardPage.tsx';
+import WeeklyPicksPage from './WeeklyPicksPage.tsx';
+import {zWebSocket} from '../hooks/useStompClient';
 
 
 import TeamRankingsAdminPage from './admin/TeamRankingsAdminPage.jsx';
 import ChangePasswordDialog from '../pages/ChangePasswordDialog';
 import AccountDetailDialog from './AccountDetailDialog.jsx';
+import {WeekRollEvent} from "../types/ZEvents";
 
-const MainPage = ({colorMode, toggleColorMode}) => {
+const NavigationPage = ({colorMode, toggleColorMode}) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const {
@@ -59,6 +62,7 @@ const MainPage = ({colorMode, toggleColorMode}) => {
     const [accountDetailLoading, setAccountDetailLoading] = useState(false);
     const [loading, setLoading] = useState(false);
 
+
     const {
         getProfileRestCall,
         getEntriesRestCall,
@@ -69,6 +73,7 @@ const MainPage = ({colorMode, toggleColorMode}) => {
         getAllSeasonsRestCall
     } = useRestApi();
 
+    const {useStompSubscription} = zWebSocket();
 
     const handleAccountBalanceClick = async () => {
         setAccountDetailOpen(true);
@@ -78,6 +83,30 @@ const MainPage = ({colorMode, toggleColorMode}) => {
             .catch(err => console.error("Fetch account detail error:", err))
             .finally(() => setAccountDetailLoading(false));
     };
+
+
+
+
+
+// Swipe state
+    const [touchStartX, setTouchStartX] = useState(0);
+
+    const handleTouchStart = (e) => setTouchStartX(e.touches[0].clientX);
+
+    const handleTouchEnd = (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const deltaX = touchEndX - touchStartX;
+
+        // Swipe right
+        if (deltaX > 50 && currentTab > 0) {
+            setCurrentTab(currentTab - 1);
+        }
+        // Swipe left
+        else if (deltaX < -50 && currentTab < (isAdmin ? 4 : 3)) {
+            setCurrentTab(currentTab + 1);
+        }
+    };
+
 
     // Load entries whenever the user profile changes
     useEffect(() => {
@@ -138,6 +167,12 @@ const MainPage = ({colorMode, toggleColorMode}) => {
             .finally(() => setLoading(false));
     }, [authUser]);
 
+    // WebSocket message handler
+    const handleWeekHasBeenRolledUpdate = useCallback((event: WeekRollEvent) => {
+        if (!event) return;
+        setCurrentWeek(event.week);
+    }, []);
+
     const handleMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -179,6 +214,10 @@ const MainPage = ({colorMode, toggleColorMode}) => {
         }
     `;
 
+    //websocket subscriptions
+    useStompSubscription( '/topic/zevents/WeekRollUpdate', handleWeekHasBeenRolledUpdate);
+
+
     if (loading) {
         return (
             <Box
@@ -203,8 +242,8 @@ const MainPage = ({colorMode, toggleColorMode}) => {
 
 
     return (
-        <Box sx={{display: 'flex', flexDirection: 'column', height: '100vh'}}>
-            <AppBar position="static">
+        <Box sx={{display: 'flex', flexDirection: 'column'}}>
+            <AppBar position="sticky`">
                 <Toolbar sx={{flexWrap: isMobile ? 'wrap' : 'nowrap'}}>
                     {/* Logo */}
                     <SportsFootballIcon sx={{mr: 2, fontSize: 40}}/>
@@ -300,22 +339,37 @@ const MainPage = ({colorMode, toggleColorMode}) => {
                 </Toolbar>
             </AppBar>
 
-            {/* Navigation Tabs */}
-            <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
-                <Tabs value={currentTab} onChange={handleTabChange} aria-label="navigation tabs">
-                    <Tab label="Leaderboard"/>
-                    <Tab label="My Games"/>
-                    <Tab label="Game Scores"/>
-                    {isAdmin && <Tab label="Team Rankings (Admin Only)"/>}
+            <Box
+                sx={{
+                    overflowX: 'auto',
+                    whiteSpace: 'nowrap',
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                }}
+            >
+                <Tabs
+                    value={currentTab}
+                    onChange={handleTabChange}
+                    variant="standard"
+                    sx={{ display: 'inline-flex', minWidth: 'max-content' }}
+                >
+                    <Tab label="Weekly Picks" />
+                    <Tab label="Leaderboard" />
+                    <Tab label="My Games" />
+                    <Tab label="Game Scores" />
+                    {isAdmin && <Tab label="Team Rankings (Admin Only)" />}
                 </Tabs>
             </Box>
 
             {/* Main Content */}
-            <Box sx={{flexGrow: 1, overflow: 'auto', p: isMobile ? 1 : 3}}>
-                {currentTab === 0 && <LeaderboardPage/>}
-                {currentTab === 1 && <MyGamesPage/>}
-                {currentTab === 2 && <GameScoresPage/>}
-                {currentTab === 3 && isAdmin && <TeamRankingsAdminPage/>}
+            <Box
+                sx={{ flexGrow: 1, overflow: 'auto', p: isMobile ? 1 : 3 }}
+            >
+                {currentTab === 0 && <WeeklyPicksPage />}
+                {currentTab === 1 && <LeaderboardPage />}
+                {currentTab === 2 && <AssignedGamesPage />}
+                {currentTab === 3 && <GameScoresPage />}
+                {currentTab === 4 && isAdmin && <TeamRankingsAdminPage />}
             </Box>
 
             {/* Change Password Dialog */}
@@ -336,4 +390,4 @@ const MainPage = ({colorMode, toggleColorMode}) => {
     );
 };
 
-export default MainPage;
+export default NavigationPage;

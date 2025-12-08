@@ -34,7 +34,7 @@ export default function TeamRankingsPage() {
     const [success, setSuccess] = useState(false);
     const [draggedItem, setDraggedItem] = useState(null);
 
-    const { getBaseImageUrl,getTeamRankingsRestCall, saveTeamRankingsRestCall } = useRestApi();
+    const { getTeamRankingsRestCall, saveTeamRankingsRestCall } = useRestApi();
 
     useEffect(() => {
         fetchTeamRankings();
@@ -285,7 +285,7 @@ export default function TeamRankingsPage() {
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Avatar 
-                                                src={getBaseImageUrl(rank.team.logo)} 
+                                                src={rank.team.ext_id}
                                                 alt={rank.team.name}
                                                 sx={{ width: 32, height: 32 }}
                                             >

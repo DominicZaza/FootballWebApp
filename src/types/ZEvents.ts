@@ -1,25 +1,17 @@
-import {TeamWinStreakDTO, GameScoreDTO, TeamWinRecordDTO, PickDTO, TotalDTO} from "./ZTypes";
-
-export interface TeamWinStreaksUpdatedEvent {
-    teamWinStreaks: TeamWinStreakDTO[];
-    sport: string;
-    season: number;
-    week: number;
-}
+import {
+    PickDTO,
+    TotalDTO,
+    LeaderBoardDTO,
+    GameScorePageDTO
+} from "./ZTypes";
 
 export interface GameScoreSavedEvent {
-    gameScores: GameScoreDTO[];
+    gameScores: GameScorePageDTO[];
     sport: string;
     season: number;
     week: number;
 }
 
-export interface TeamWinRecordsUpdatedEvent {
-    teamWinRecords: TeamWinRecordDTO[];
-    sport: string;
-    season: number;
-    week: number;
-}
 
 export interface PickStatusUpdatedEvent {
     pickRecords: PickDTO[];
@@ -30,6 +22,18 @@ export interface PickStatusUpdatedEvent {
 export interface EntryTotalUpdatedEvent {
     totalsUpdated: TotalDTO[];
     totalsToRemove: number[];
+    season: number;
+    week: number;
+}
+export interface LeaderboardUpdateEvent {
+    totalsUpdated: TotalDTO[];
+    totalsToRemove: number[];
+    season: number;
+    week: number;
+    poolInstanceId: number;
+    leaderBoards: LeaderBoardDTO[];
+}
+export interface WeekRollEvent {
     season: number;
     week: number;
 }

@@ -39,8 +39,13 @@ const LoginPage = () => {
 
 
         } catch (err) {
-            console.error('Login error:', err);
-            setError(err.message || 'Failed to login. Please check your credentials.');
+            setError('Failed to login. Please check your credentials.');
+/*
+TODO
+            failedLoginRestCall(email);
+
+            add text to link to resert password
+*/
         } finally {
             setLoading(false);
         }

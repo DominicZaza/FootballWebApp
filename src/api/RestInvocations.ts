@@ -1,7 +1,6 @@
 import {useZAppContext} from "../components/AppContextProvider";
 import {
     GameRankDTO,
-    PickDTO,
     TeamWinRecordDTO,
     TeamWinStreakDTO,
     AssignedGameDTO,
@@ -11,8 +10,15 @@ import {
     ProfileDTO,
     EntryDTO,
     SeasonDTO,
-    LeaderBoardDTO
+    LeaderBoardDTO, WeeklyPicksPageDTO, GameScorePageDTO, MyGamesPageResponse, PickSubmission, GameScoresPageResponse,
+    TeamsForScorePageResponse
 } from "../types/ZTypes";
+
+export const getTeamLogoUrl = (ext_id,sport) => {
+    let sportUrl='nfl';
+    if (sport==='americanfootball_ncaaf') sportUrl='ncaa';
+    return "http://a.espncdn.com/i/teamlogos/"+sportUrl+"/500/" + ext_id + ".png";
+};
 
 
 export const useRestApi = () => {
@@ -27,9 +33,6 @@ export const useRestApi = () => {
     };
     const getBaseApiURL = () => {
         return getBaseServerURL()+`/api/v1`;
-    };
-    const getBaseImageUrl = (logo) => {
-        return getBaseServerURL() + `/images/`+logo;
     };
     const getWebSocketEndpoint = () => {
         return getBaseServerURL()+`/zazafootballpool-websocket`;
@@ -68,9 +71,25 @@ export const useRestApi = () => {
                 throw new Error(`${errorBody.detail || 'Error'}: ${response.statusText}`);
             }
 
-            if (method === 'GET') // no data returned
-               return await response.json();
-    };
+         // ---- Handle NO BODY cases ----
+         // Case 1: HTTP 204 No Content
+         if (response.status === 204) {
+             return null;
+         }
+
+         // Case 2: Content-Length = 0
+         const contentLength = response.headers.get('content-length');
+         if (contentLength === '0') {
+             return null;
+         }
+
+         // Case 3: Attempt JSON; catch empty response
+         try {
+             return await response.json();
+         } catch (_) {
+             return null;
+         }
+     };
 
      const loginRestCall = async () => {
         return await makeRestCall('/login', 'POST');
@@ -106,27 +125,25 @@ export const useRestApi = () => {
         await makeRestCall(`/teamranking/`, 'POST', body);
     };
 
-    const snapCompletedGameScoresRestCall = async (season,week) => {
-        await makeRestCall(`/games/snapCompletedGames/sport/americanfootball_nfl/season/${season}/week/${week}`, 'PUT');
+    const snapCompletedGameScoresRestCall = async (sport, season,week): Promise<string> => {
+        return await makeRestCall(`/games/snapCompletedGames/sport/${sport}/season/${season}/week/${week}`, 'PUT');
+    };
+
+    const snapCompletedGameOddsRestCall = async (season,week): Promise<string> => {
+        return await makeRestCall(`/games/snapGameOdds/season/${season}/week/${week}`, 'PUT');
     };
 
     const getAllSeasonsRestCall = async (): Promise<SeasonDTO[]> => {
         return await makeRestCall(`/season`);
     };
-    const getGameScoresRestCall = async (sport, season, week): Promise<GameScoreDTO[]> => {
+    const getGameScoresByWeekRestCall = async (sport, season, week): Promise<GameScoresPageResponse> => {
         return await makeRestCall(`/gamescores/sport/${sport}/season/${season}/week/${week}`);
     }
-    const getGameScoresByGamesRestCall = async (listOfGames: number[]): Promise<GameScoreDTO[]> => {
-        return await makeRestCall(`/gamescores/games/${listOfGames.join(',')}`);
+    const getGameScoresByTeamRestCall = async (sport, season, team): Promise<GameScoresPageResponse> => {
+        return await makeRestCall(`/gamescores/sport/${sport}/season/${season}/team/${team}`);
     }
-    const getTeamWinStreaksRestCall = async (sport: String, season:number, week:number): Promise<TeamWinStreakDTO[]> => {
-        return await makeRestCall(`/team/streaks/sport/${sport}/season/${season}/week/${week}`);
-    }
-    const getTeamRecordsRestCall = async (sport: String, season: number, week: number): Promise<TeamWinRecordDTO[]> => {
-        return await makeRestCall(`/team/records/sport/${sport}/season/${season}/week/${week}`);
-    }
-     const getGameRanksRestCall = async (sport: string, season: number, week: number): Promise<GameRankDTO[]> => {
-        return await makeRestCall(`/games/rankings/sport/${sport}/season/${season}/week/${week}`);
+    const getTeamsAndWeeksBySportAndSeasonRestCall = async (sport,season): Promise<TeamsForScorePageResponse> => {
+        return await makeRestCall(`/gamescores/teams/sport/${sport}/season/${season}`);
     };
 
     const getGameRanksByGamesRestCall = async (listOfGames: number[]): Promise<GameRankDTO[]> => {
@@ -136,16 +153,23 @@ export const useRestApi = () => {
     const getAssignedGamesRestCall = async (entryId: number): Promise<AssignedGameDTO[]> => {
         return await makeRestCall(`/assignedgame/entry/${entryId}`);
     };
-    const getPicksByEntryAndSeasonRestCall = async (entryId: number, seasonId: number): Promise<PickDTO[]> => {
-        return await makeRestCall(`/picks/season/${seasonId}/entry/${entryId}`);
-    };
-    const getEntryTotalsByEntryRestCall = async (entry: number): Promise<TotalDTO[]> => {
-        return await makeRestCall(`/totals/entry/${entry}`);
+    const getMyGamesPageRestCall = async (entryId: number): Promise<MyGamesPageResponse> => {
+        return await makeRestCall(`/picks/entry/${entryId}`);
     };
 
     const getLeaderboardByPoolInstanceAndWeek = async (poolInstanceId: number,week: number): Promise<LeaderBoardDTO[]> => {
         return await makeRestCall(`/totals/leader/pool/${poolInstanceId}/week/${week}`);
     };
+    const getWeeklyPicksByPoolInstanceAndWeekRestCall = async (poolInstanceId: number,week: number): Promise<WeeklyPicksPageDTO[]> => {
+        return await makeRestCall(`/picks/${poolInstanceId}/week/${week}`);
+    };
+    const rollWeekRestCall = async (): Promise<string> => {
+        return await makeRestCall(`/games/rollWeek`, 'PUT');
+    };
+    const submitPickRestCall = async (pick: PickSubmission): Promise<string> => {
+        return await makeRestCall(`/picks/submit`, 'POST',JSON.stringify(pick));
+    };
+
 
 
     return {
@@ -158,21 +182,22 @@ export const useRestApi = () => {
         getMyAccountDetailRestCall,
         getTeamRankingsRestCall,
         saveTeamRankingsRestCall,
-        getBaseImageUrl,
         getAllSeasonsRestCall,
-        getGameScoresRestCall,
-        getGameScoresByGamesRestCall,
+        getGameScoresByWeekRestCall,
+        getGameScoresByTeamRestCall,
         getWebSocketEndpoint,
         snapCompletedGameScoresRestCall,
-        getTeamWinStreaksRestCall,
-        getTeamRecordsRestCall,
+        snapCompletedGameOddsRestCall,
         makeRestCall,
-        getGameRanksRestCall,
+        getTeamLogoUrl,
         getAssignedGamesRestCall,
         getGameRanksByGamesRestCall,
-        getPicksByEntryAndSeasonRestCall,
-        getEntryTotalsByEntryRestCall,
-        getLeaderboardByPoolInstanceAndWeek
+        getLeaderboardByPoolInstanceAndWeek,
+        getWeeklyPicksByPoolInstanceAndWeekRestCall,
+        rollWeekRestCall,
+        getMyGamesPageRestCall,
+        submitPickRestCall,
+        getTeamsAndWeeksBySportAndSeasonRestCall
      };
 
 };

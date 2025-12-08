@@ -1,0 +1,120 @@
+/* ================================
+   TABLE LAYOUT
+================================ */
+
+.compact-table {
+    width: 100%;
+}
+
+.compact-table td,
+.compact-table th {
+    padding: 4px 6px !important;
+    white-space: nowrap;
+}
+
+.index-col {
+    width: 24px;
+    text-align: center;
+}
+
+
+/* Score column */
+.score-col {
+    width: 70px;
+    text-align: center;
+}
+
+/* Category column */
+.category-col {
+    width: 80px;
+}
+
+/* ================================
+   TEAM / OPPONENT RENDERERS
+================================ */
+
+.team-cell,
+.opponent-cell {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Logo */
+.team-logo {
+    width: 18px;
+    height: 18px;
+}
+
+.team-col {
+    width: 160px;
+    min-width: 140px;
+    max-width: 200px;
+}
+
+.team-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    max-width: 200px;
+}
+
+.team-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    line-height: 1.1;
+}
+
+/* First row: dot + name */
+.team-main-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+
+/* Colored dot */
+.team-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+/* Record + streak stack */
+.team-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+/* Compact chip */
+.compact-chip {
+    font-size: 0.65rem !important;
+    height: 18px !important;
+    padding: 0 6px !important;
+}
+
+/* ================================
+   DOT STATUS COLORS
+================================ */
+
+.dot-win { background: rgba(76, 175, 80, 0.35); }
+.dot-loss { background: rgba(244, 67, 54, 0.35); }
+.dot-push { background: rgba(255, 193, 7, 0.45); }
+.dot-incomplete { background: rgba(0,0,0,0.25); }
+
+/* ================================
+   GLOW PULSE ANIMATION
+================================ */
+
+@keyframes glowPulse {
+    0%   { text-shadow: 0 0 2px currentColor; }
+    50%  { text-shadow: 0 0 8px currentColor; }
+    100% { text-shadow: 0 0 2px currentColor; }
+}
+
+.glow {
+    animation: glowPulse 1.3s ease-in-out infinite;
+}

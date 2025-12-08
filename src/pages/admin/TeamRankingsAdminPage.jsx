@@ -21,7 +21,7 @@ import {
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ArrowDropUp from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDown from '@mui/icons-material/ArrowDropDown';
-import { useRestApi } from '../../api/RestInvocations.ts';
+import {getTeamLogoUrl, useRestApi} from '../../api/RestInvocations.ts';
 
 export default function TeamRankingsAdminPage() {
     const { currentWeek, currentSeason   } = useZAppContext();
@@ -34,7 +34,7 @@ export default function TeamRankingsAdminPage() {
     const [success, setSuccess] = useState(false);
     const [draggedItem, setDraggedItem] = useState(null);
 
-    const { getBaseImageUrl,getTeamRankingsRestCall, saveTeamRankingsRestCall } = useRestApi();
+    const { getTeamRankingsRestCall, saveTeamRankingsRestCall } = useRestApi();
 
     useEffect(() => {
         fetchTeamRankings();
@@ -285,7 +285,7 @@ export default function TeamRankingsAdminPage() {
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Avatar 
-                                                src={getBaseImageUrl(rank.team.logo)} 
+                                                src={getTeamLogoUrl(rank.team.ext_id,sport)}
                                                 alt={rank.team.name}
                                                 sx={{ width: 32, height: 32 }}
                                             >

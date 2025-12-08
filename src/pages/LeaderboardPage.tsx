@@ -1,11 +1,21 @@
 import {useZAppContext} from '../components/AppContextProvider';
-import {useRestApi} from '../api/RestInvocations.js';
+import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.js';
 import {formatDate} from '../utils/DateUtils'
+import { ToggleOptionsGroup, ToggleOption } from "../utils/ToggleOptionsGroup";
+
+const toggleOptions: ToggleOption[] = [
+    { key: "entryRanking", label: "Entry Ranking", icon: StarIcon },
+    { key: "entryRecord", label: "Win Record", icon: EmojiEventsIcon },
+    { key: "streak", label: "Win Streak", icon: RepeatIcon },
+    { key: "nextGame", label: "Next Game", icon: StarIcon },
+    { key: "gameDate", label: "Game Date", icon: ScheduleIcon },
+    { key: "gameCategory", label: "Game Category", icon: StarIcon },
+];
+
 import {
     Alert,
-    Box, Chip,
+    Box,
     FormControl,
-    IconButton,
     InputLabel,
     keyframes,
     MenuItem,
@@ -16,11 +26,10 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TableRow, ToggleButton, ToggleButtonGroup, Typography
+    TableRow, ToggleButtonGroup, Typography
 } from "@mui/material";
-import Tooltip from "@mui/material/Tooltip";
 import SportsFootballIcon from "@mui/icons-material/SportsFootball";
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import {zWebSocket} from '../hooks/useStompClient';
 import {LeaderBoardDTO} from "../types/ZTypes";
 import ArrowDropUp from "@mui/icons-material/ArrowDropUp";
@@ -29,23 +38,23 @@ import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import StarIcon from "@mui/icons-material/Star";
+import {LeaderboardUpdateEvent} from "../types/ZEvents";
+import {GameCategoryRenderer} from '../utils/GameCategoryRenderer'
+
 
 const LeaderboardPage = () => {
-    const [selectedWeek, setSelectedWeek] = useState<number>(0);
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState(null);
     const {isAdmin, isMobile, userProfile, selectedEntry, currentSeason, currentWeek} = useZAppContext();
+    const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
     const [leaderRecords, setLeaderRecords] = useState<LeaderBoardDTO[]>([]);
-    const [showNextGame, setShowNextGame] = useState<boolean>(false);
-    const [showRecord, setShowRecord] = useState<boolean>(false);
-    const [showStreak, setShowStreak] = useState<boolean>(false);
-    const [showRanks, setShowRanks] = useState<boolean>(false);
-    const [showEntryRank, setShowEntryRank] = useState<boolean>(false);
+    //Toggle preferences
+    const [visibleToggles, setVisibleToggles] = useState<string[]>([]);
 
     const {
         getLeaderboardByPoolInstanceAndWeek,
-        getBaseImageUrl
+        getTeamLogoUrl
     } = useRestApi();
 
 
@@ -57,39 +66,21 @@ const LeaderboardPage = () => {
         setSelectedWeek(week);
     };
 
-    const handleToggleChange = (event, newValues) => {
-        if (!newValues) return;
 
-        const prefs = {
-            showRecord: newValues.includes('records'),
-            showStreak: newValues.includes('streaks'),
-            showNextGame: newValues.includes('nextgame'),
-            showRanks: newValues.includes('ranks'),
-            showEntryRank: newValues.includes('entryRank'),
-        };
+    // WebSocket message handler
+    const handleLeaderboardUpdate = useCallback((event: LeaderboardUpdateEvent) => {
+        if (!event || !selectedEntry) return;
+        if (event.week != selectedWeek) return;
+        if (event.poolInstanceId != selectedEntry.pool_instance_id) return;
+        if (event.season != currentSeason) return;
+        const updatedRecords = event.leaderBoards;
+        setLeaderRecords(updatedRecords);
+    }, [selectedEntry]);
 
-        setShowRecord(prefs.showRecord);
-        setShowStreak(prefs.showStreak);
-        setShowNextGame(prefs.showNextGame);
-        setShowRanks(prefs.showRanks);
-        setShowEntryRank(prefs.showEntryRank);
 
-        // 🟦 persist to browser
-        localStorage.setItem("leaderboardTogglePrefs", JSON.stringify(prefs));
-    };
+    //websocket subscriptions
+    useStompSubscription('/topic/zevents/LeaderboardUpdate', handleLeaderboardUpdate);
 
-    useEffect(() => {
-        const saved = localStorage.getItem("leaderboardTogglePrefs");
-        if (saved) {
-            const prefs = JSON.parse(saved);
-            setShowRecord(prefs.showRecord);
-            setShowStreak(prefs.showStreak);
-            setShowNextGame(prefs.showNextGame);
-            setShowRanks(prefs.showRanks);
-            setShowEntryRank(prefs.showEntryRank);
-
-        }
-    }, []);
 
     const renderRankAndDelta = (rank: number, rankLastWeek: number) => {
         const delta = rank - rankLastWeek;
@@ -101,12 +92,12 @@ const LeaderboardPage = () => {
         const absDelta = Math.abs(delta);
 
         if (selectedWeek === 1) return ( // don't show delta for the first week
-            <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'left', gap: 0.5}}>
+            <Box sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5}}>
                 {rank}
             </Box>)
         else
             return (
-                <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'left', gap: 0.5}}>
+                <Box sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5}}>
                     {rank}
                     {isImprovement ? (
                         <ArrowDropUp sx={{color: 'success.main', fontSize: 18}}/>
@@ -120,59 +111,10 @@ const LeaderboardPage = () => {
                 </Box>
             );
     };
-    const ToggleButtonRenderer = ({ showToggle, toggleName, toggleKey, Icon }) => {
-        return (
-            <Tooltip title={showToggle ? `Hide ${toggleName}` : `Show ${toggleName}`}>
-                <ToggleButton
-                    value={toggleKey}
-                    aria-label={toggleKey}
-                    sx={(theme) => ({
-                        px: 2,
-                        py: 1,
-                        minWidth: 48,
-                        position: 'relative',
-                        overflow: 'visible',
-                        borderRadius: 1.5,
-                        transition: 'all 0.16s ease',
-
-                        '&:hover': {
-                            bgcolor: 'action.hover'
-                        },
-
-                        // 🔵 Selected state — only show the ribbon, not background
-                        '&.Mui-selected, &.Mui-selected:hover': {
-                            bgcolor: 'transparent',   // <-- keep transparent
-                            color: 'inherit',         // <-- don't change icon/text color
-
-                            '&::after': {
-                                content: '""',
-                                position: 'absolute',
-                                top: 0,
-                                right: 0,
-                                width: 0,
-                                height: 0,
-                                borderTop: `20px solid ${theme.palette.primary.main}`,
-                                borderLeft: '20px solid transparent',
-                                zIndex: 5,
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                            },
-
-                            '& > svg': {
-                                zIndex: 10,
-                                position: 'relative'
-                            },
-                        },
-                    })}
-                >
-                    <Icon color={showToggle ? "primary" : "action"} />
-                </ToggleButton>
-            </Tooltip>
-        );
-    };
 
     const NextGameCellRenderer = ({awayName, awayLogoUrl, homeName, homeLogoUrl}) => {
         return (
-            <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+            <Box sx={{display: "inline-flex", alignItems: "center", gap: 1}}>
                 {awayLogoUrl && (
                     <img
                         src={awayLogoUrl}
@@ -249,7 +191,7 @@ const LeaderboardPage = () => {
 
     // Generate week options
     const weekOptions = [];
-    for (let week = 1; week <= 18; week++) {
+    for (let week = 1; week <= currentWeek; week++) {
         weekOptions.push(
             <MenuItem key={week} value={week}>
                 Week {week}
@@ -278,30 +220,13 @@ const LeaderboardPage = () => {
                     </Select>
                 </FormControl>
 
-                <Box sx={{display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap'}}>
 
-                    <ToggleButtonGroup
-                        value={[
-                            ...(showRecord ? ['records'] : []),
-                            ...(showStreak ? ['streaks'] : []),
-                            ...(showNextGame ? ['nextgame'] : []),
-                            ...(showRanks ? ['ranks'] : []),
-                            ...(showEntryRank ? ['entryRank'] : []),
+                <ToggleOptionsGroup
+                    id="Leaderboard"             // unique per page
+                    options={toggleOptions}
+                    onChange={(keys) => setVisibleToggles(keys)}
+                />
 
-                        ]}
-                        onChange={handleToggleChange}
-                        aria-label="Display options"
-                        sx={{height: 56,borderRadius: 2,ml: isAdmin ? 1 : 0,boxShadow: 1,}}
-                    >
-                        <ToggleButtonRenderer showToggle={showEntryRank} toggleName="Entry Rank" toggleKey="entryRank" Icon={StarIcon}/>
-                        <ToggleButtonRenderer showToggle={showRecord} toggleName="Entry Win Record" toggleKey="records" Icon={EmojiEventsIcon}/>
-                        <ToggleButtonRenderer showToggle={showStreak} toggleName="Win Streak" toggleKey="streaks" Icon={RepeatIcon}/>
-                        <ToggleButtonRenderer showToggle={showNextGame} toggleName="Next Game" toggleKey="nextgame" Icon={ScheduleIcon}/>
-                        <ToggleButtonRenderer showToggle={showRanks} toggleName="Next Game Rank" toggleKey="ranks" Icon={StarIcon}/>
-                    </ToggleButtonGroup>
-
-
-                </Box>
 
                 {error && (
                     <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>
@@ -309,19 +234,31 @@ const LeaderboardPage = () => {
                     </Alert>
                 )}
 
-                <TableContainer component={Paper} sx={{maxHeight: 1200}}>
-                    <Table stickyHeader size="small">
+                <TableContainer component={Paper} >
+                    <Table
+                        stickyHeader
+                        size="small"
+                        sx={{
+                            tableLayout: "auto",
+                            "& th, & td": {
+                                whiteSpace: "nowrap",
+                                maxWidth: "max-content",
+                                width: "auto",
+                                textAlign: "center",
+                            },
+                        }}
+                    >
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{minWidth: 10}}></TableCell>
-                                <TableCell sx={{width: 'auto'}}>Entry</TableCell>
-                                <TableCell sx={{width: 'auto'}}>Total</TableCell>
-                                {showEntryRank && <TableCell sx={{minWidth: 60}}>Rank</TableCell>}
-                                {showRecord && <TableCell sx={{width: 'auto'}}>W-L-T-P</TableCell>}
-                                {showStreak && <TableCell sx={{width: 'auto'}}>Streak</TableCell>}
-                                {showNextGame && <TableCell align={"center"}>Next Game</TableCell>}
-                                {showNextGame && <TableCell align={"center"}>Game Date</TableCell>}
-                                {showRanks && <TableCell>Game Rank</TableCell>}
+                                <TableCell></TableCell>
+                                <TableCell>Entry</TableCell>
+                                <TableCell>Total</TableCell>
+                                {visibleToggles.includes("entryRanking") && <TableCell>Ranking</TableCell>}
+                                {visibleToggles.includes("entryRecord") && <TableCell>W-L-T-P</TableCell>}
+                                {visibleToggles.includes("streak") && <TableCell>Streak</TableCell>}
+                                {visibleToggles.includes("nextGame") && <TableCell align={"center"}>Next Game</TableCell>}
+                                {visibleToggles.includes("gameDate") && <TableCell align={"center"}>Game Date</TableCell>}
+                                {visibleToggles.includes("gameCategory") && <TableCell>Game Category</TableCell>}
 
                             </TableRow>
                         </TableHead>
@@ -330,8 +267,8 @@ const LeaderboardPage = () => {
                                 <TableRow
                                     key={leaderRecord.entryId || index}
                                     sx={{ // for zero total entries, make them slightly transparent
-                                        opacity: leaderRecord.total === 0 ? 0.4 : 1,
-                                        '& td': leaderRecord.total === 0 ? {
+                                        opacity: leaderRecord.current_balance === 0 ? 0.4 : 1,
+                                        '& td': leaderRecord.current_balance === 0 ? {
                                             fontStyle: 'italic'
                                         } : {},
                                         transition: 'opacity 0.2s ease',
@@ -347,63 +284,60 @@ const LeaderboardPage = () => {
                                     <TableCell>
                                         {leaderRecord.entryName}
                                     </TableCell>
-                                    <TableCell>
-                                        {leaderRecord.total}
-                                    </TableCell>
-                                    {showEntryRank && (
-                                    <TableCell align="left">
-                                        {renderRankAndDelta(leaderRecord.rank, leaderRecord.rankLastWeek)}
-                                    </TableCell>
+                                    {(() => {
+
+                                        let prefix = "";
+
+                                        if (leaderRecord.game_is_pending) {
+                                            prefix = "*";
+                                        }
+
+                                        return (
+                                            <TableCell>
+                                                {prefix}{leaderRecord.current_balance}{prefix}
+                                            </TableCell>
+                                        );
+                                    })()}
+                                    {visibleToggles.includes("entryRanking") && (
+                                        <TableCell>
+                                            {renderRankAndDelta(leaderRecord.rank, leaderRecord.rankLastWeek)}
+                                        </TableCell>
                                     )}
-                                    {showRecord && (
+                                    {visibleToggles.includes("entryRecord") && (
                                         <TableCell>
                                             {leaderRecord.wins}-{leaderRecord.losses}-{leaderRecord.ties}-{leaderRecord.penalties}
                                         </TableCell>
                                     )}
-                                    {showStreak && (
+                                    {visibleToggles.includes("streak") && (
                                         <TableCell>
                                             {leaderRecord.current_streak_type}-{leaderRecord.current_streak}
                                         </TableCell>
                                     )}
-                                    {showNextGame && (
+                                    {visibleToggles.includes("nextGame") && (
                                         <TableCell>
-                                            {leaderRecord.total !== 0 ? (
+                                            {leaderRecord.current_balance !== 0 ? (
                                                 <NextGameCellRenderer
                                                     awayName={leaderRecord.away_team}
-                                                    awayLogoUrl={getBaseImageUrl(leaderRecord.away_logo)}
+                                                    awayLogoUrl={getTeamLogoUrl(leaderRecord.away_ext_id,leaderRecord.sport)}
                                                     homeName={leaderRecord.home_team}
-                                                    homeLogoUrl={getBaseImageUrl(leaderRecord.home_logo)}
+                                                    homeLogoUrl={getTeamLogoUrl(leaderRecord.home_ext_id,leaderRecord.sport)}
                                                 />
                                             ) : (
                                                 ""   // empty cell
                                             )}
                                         </TableCell>
                                     )}
-                                    {showNextGame && (
+                                    {visibleToggles.includes("gameDate") && (
                                         <TableCell>
-                                            {leaderRecord.total !== 0
+                                            {leaderRecord.current_balance !== 0
                                                 ? formatDate(leaderRecord.commence_time, isMobile)
                                                 : ""}
                                         </TableCell>
                                     )}
-                                    {showRanks && leaderRecord.total != 0 && (
-                                        <TableCell>
-                                            {(() => {
-                                                const colorMap = {
-                                                    Difficult: "error",
-                                                    Hard: "warning",
-                                                    Medium: "info",
-                                                    Easy: "success",
-                                                };
-                                                return (
-                                                    <Chip
-                                                        label={`${leaderRecord.rankType} (${leaderRecord.home_rank} vs ${leaderRecord.away_rank})`}
-                                                        color={colorMap[leaderRecord.rankType]}
-                                                        variant="filled"
-                                                        size="small"
-                                                    />
-                                                );
-                                            })()}
+                                    {visibleToggles.includes("gameCategory") && leaderRecord.current_balance != 0 && (
+                                        <TableCell> <GameCategoryRenderer rankType={leaderRecord.rankType}
+                                                                          homeRank={leaderRecord.home_rank}
+                                                                          awayRank={leaderRecord.away_rank}/>
                                         </TableCell>
                                     )}
 

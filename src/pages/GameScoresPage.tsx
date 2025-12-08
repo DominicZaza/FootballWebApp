@@ -1,13 +1,17 @@
 import {useZAppContext} from '../components/AppContextProvider.tsx';
-import {useRestApi} from '../api/RestInvocations.js';
-import {ToggleButton, ToggleButtonGroup, IconButton} from "@mui/material";
+import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.js';
+import {ToggleButton, ToggleButtonGroup, Tooltip, Typography} from "@mui/material";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ScheduleIcon from "@mui/icons-material/Schedule";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import StarIcon from "@mui/icons-material/Star";
-import Tooltip from "@mui/material/Tooltip";
-import {formatDate}  from '../utils/DateUtils'
+import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
+import {formatDate} from '../utils/DateUtils'
+import {ToggleButtonRenderer} from '../utils/ToggleButtonRenderer';
+import {GameCategoryRenderer} from '../utils/GameCategoryRenderer'
+import HeaderWithTooltip from '../components/HeaderWithTooltip'
+import {useNotify} from "../components/NotificationProvider";
+import '../styles/GameScoresPage.css';
 
 import {
     Alert,
@@ -20,6 +24,9 @@ import {
     keyframes,
     MenuItem,
     Paper,
+    RadioGroup,
+    Radio,
+    FormControlLabel,
     Select,
     Table,
     TableBody,
@@ -30,44 +37,167 @@ import {
 } from "@mui/material";
 import SportsFootballIcon from "@mui/icons-material/SportsFootball";
 import React, {useCallback, useEffect, useState} from "react";
-import {TeamWinStreaksUpdatedEvent, GameScoreSavedEvent, TeamWinRecordsUpdatedEvent} from "../types/ZEvents";
-import {GameScoreDTO, TeamWinRecordDTO, GameRankDTO, TeamWinStreakDTO} from "../types/ZTypes";
+import {GameScoreSavedEvent} from "../types/ZEvents";
+import {GameScorePageDTO} from "../types/ZTypes";
 import {zWebSocket} from '../hooks/useStompClient';
 
-// Cell renderer components
-const TeamCellRenderer = ({name, status, logo, getBaseImageUrl, streak, record}) => {
-    const logoUrl = getBaseImageUrl(logo);
 
-    const color =
-        status === "Win" ? "success" :
-            status === "Loss" ? "error" :
-                status === "Push" ? "warning" :
-                    "default";
+const glowPulse = keyframes`
+    0% {
+        text-shadow: 0 0 2px currentColor;
+    }
+    50% {
+        text-shadow: 0 0 8px currentColor;
+    }
+    100% {
+        text-shadow: 0 0 2px currentColor;
+    }
+`;
+
+const getGlowColor = (status) => {
+    switch (status) {
+        case "Win":
+            return "rgba(76, 175, 80, 1)";
+        case "Loss":
+            return "rgba(244, 67, 54, 1)";
+        case "Push":
+            return "rgba(255, 193, 7, 1)";
+        default:
+            return "rgba(120, 120, 120, 0.8)";
+    }
+};
+
+const TeamCellRenderer = ({
+                              name, ext_id,
+                              status,
+                              streak,
+                              record,
+                              highlightTeam,
+                              onClickTeam,
+                              homeTeamSpread,
+                              sport
+                          }) => {
+    const logoUrl = getTeamLogoUrl(ext_id,sport)
+
+    const dotColor =
+        status === "Win" ? "rgba(76, 175, 80, 0.35)" :
+            status === "Loss" ? "rgba(244, 67, 54, 0.35)" :
+                status === "Push" ? "rgba(255, 193, 7, 0.45)" :
+                    "rgba(0,0,0,0.25)";
+
+    const glowColor = getGlowColor(status);
+
     return (
         <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-            {logo && (
-                <img
-                    src={logoUrl}
-                    alt={`${name} logo`}
-                    style={{width: 24, height: 24, objectFit: 'contain'}}
-                />
-            )}
-            <Chip label={name} color={color}
-                  variant="outlined"   // ✅ changed from "outlined" to "filled"
-                  size="small"/>
-            {record && (
-                <Chip label={record} color={color}
-                      variant="outlined"   // ✅ changed from "outlined" to "filled"
-                      size="small"/>
-            )}
-            {streak && (
-                <Chip label={streak} color={color}
-                      variant="outlined"   // ✅ changed from "outlined" to "filled"
-                      size="small"/>
+            {ext_id && <img src={logoUrl} style={{width: 24, height: 24}}/>}
+
+            {name && (
+                <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+                    <Box
+                        sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: dotColor,
+                        }}
+                    />
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: highlightTeam ? glowColor : 'inherit',
+                            animation: highlightTeam ? `${glowPulse} 1.3s ease-in-out infinite` : 'none',
+                            cursor: onClickTeam ? 'pointer' : 'default',
+                            // textDecoration: onClickTeam ? 'underline' : 'none'
+                        }}
+                        onClick={onClickTeam}
+                    >
+                        {name} {homeTeamSpread}
+                    </Typography>
+                </Box>
             )}
 
+            {record && <Chip label={record} size="small"/>}
+            {streak && <Chip label={streak} size="small"/>}
         </Box>
     );
+};
+
+interface OpponentCellRendererProps {
+    displayAtSign?: string
+}
+
+const OpponentCellRenderer = ({name, status, ext_id,  streak, record, onClickTeam, displayAtSign, sport}) => {
+    const logoUrl = getTeamLogoUrl(ext_id,sport);
+
+    const dotColor =
+        status === "Win" ? "rgba(76, 175, 80, 0.35)" :
+            status === "Loss" ? "rgba(244, 67, 54, 0.35)" :
+                status === "Push" ? "rgba(255, 193, 7, 0.45)" :
+                    "rgba(0,0,0,0.25)";
+
+    const glowColor = getGlowColor(status);
+
+    return (
+        <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+            {displayAtSign}
+            {ext_id && <img src={logoUrl} style={{width: 24, height: 24}}/>}
+            {name && (
+                <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            cursor: onClickTeam ? 'pointer' : 'default',
+                        }}
+                        onClick={onClickTeam}
+                    >
+                        {name}
+                    </Typography>
+                </Box>
+            )}
+
+            {record && <Chip label={record} size="small"/>}
+            {streak && <Chip label={streak} size="small"/>}
+        </Box>
+    );
+};
+const ScoreCellRenderer = ({game, filterMode, selectedTeamId}) => {
+
+    if (!game.completed) return <></>;
+
+    const getSelectedTeamResult = () => {
+        if (!selectedTeamId) return null;
+
+        const selectedIsHome = game.home_team_id === selectedTeamId;
+        const selectedScore = selectedIsHome ? game.home_score : game.away_score;
+        const oppScore = selectedIsHome ? game.away_score : game.home_score;
+
+        if (selectedScore > oppScore) return "W";
+        if (selectedScore < oppScore) return "L";
+        return "P";
+    };
+
+    if (filterMode === "team" && selectedTeamId) {
+        const selectedIsHome = selectedTeamId === game.home_team_id;
+        const selectedScore = selectedIsHome ? game.home_score : game.away_score;
+        const opponentScore = selectedIsHome ? game.away_score : game.home_score;
+
+        const higher = Math.max(selectedScore, opponentScore);
+        const lower = Math.min(selectedScore, opponentScore);
+
+        const result = getSelectedTeamResult();
+
+        return (
+            <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                {result === "W" && <span style={{color: "green", fontWeight: 700}}>W</span>}
+                {result === "L" && <span style={{color: "red", fontWeight: 700}}>L</span>}
+                {result === "P" && <span style={{color: "gray", fontWeight: 700}}>P</span>}
+                <Typography variant="body2">{higher} - {lower}</Typography>
+            </Box>
+        );
+    }
+
+    // WEEK mode fallback
+    return <Typography variant="body2">{game.away_score} - {game.home_score}</Typography>;
 };
 
 
@@ -75,48 +205,78 @@ const GameScoresPage = () => {
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState(null);
-    const [selectedWeek, setSelectedWeek] = useState<number>(0);
-    const [selectedSeasonId, setSelectedSeasonId] = useState<number>(0);
-    const [gameScores, setGameScores] = useState<GameScoreDTO[]>([]);
-    const [snapping, setSnapping] = useState<boolean>(false);
-    const {isAdmin, isMobile,  currentWeek, currentSeason, seasons} = useZAppContext();
-    const [teamWinStreaks, setTeamWinStreaks] = useState<TeamWinStreakDTO[]>([]);
-    const [teamRecords, setTeamRecords] = useState<TeamWinRecordDTO[]>([]);
+    const [gameScorePageDTOs, setGameScorePageDTOs] = useState<GameScorePageDTO[]>([]);
+    const [snappingScores, setSnappingScores] = useState<boolean>(false);
+    const [snappingOdds, setSnappingOdds] = useState<boolean>(false);
+    const [rollingWeek, setRollingWeek] = useState<boolean>(false);
+    const {isAdmin, isMobile, currentWeek, currentSeason, seasons} = useZAppContext();
+    //toggle states
     const [showTeamRecords, setShowTeamRecords] = useState<boolean>(false);
     const [showTeamWinStreaks, setShowTeamWinStreaks] = useState<boolean>(false);
     const [showGameDate, setShowGameDate] = useState<boolean>(false);
-    const [showRanks, setShowRanks] = useState<boolean>(false);
-    const [gameRanks, setGameRanks] = useState<GameRankDTO[]>([]);
+    const [showGameCategory, setShowGameCategory] = useState<boolean>(false);
+    const [showGameOdds, setShowGameOdds] = useState<boolean>(false);
+
+
+    const [snapScoresMessage, setSnapScoresMessage] = useState('');
+    const [snapOddsMessage, setSnapOddsMessage] = useState('');
+    const [showSnapScoreTooltip, setShowSnapScoreTooltip] = useState(false);
+    const [showSnapOddsTooltip, setShowSnapOddsTooltip] = useState(false);
+    const [showRollingWeekTooltip, setShowRollingWeekTooltip] = useState(false);
+    const [rollingWeekReturnMessage, setRollingWeekReturnMessage] = useState('');
+    const {notify} = useNotify();
+// Filtering mode: "week" or "team"
+    const [filterMode, setFilterMode] = useState<'week' | 'team'>('week');
+// When filtering by team:
+    const [teams, setTeams] = useState([]);
+    const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+    const [selectedSport, setSelectedSport] = useState<string>('americanfootball_nfl');
+    const [selectedSeasonId, setSelectedSeasonId] = useState<number>(currentSeason);
+    const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
+    const [maxAvailableWeek, setMaxAvailableWeek] = useState<number>(18);
 
     const {
-        getGameScoresRestCall,
-        getBaseImageUrl,
+        getGameScoresByWeekRestCall,
+        getGameScoresByTeamRestCall,
+        getTeamsAndWeeksBySportAndSeasonRestCall,
         snapCompletedGameScoresRestCall,
-        getTeamWinStreaksRestCall,
-        getTeamRecordsRestCall,
-        getGameRanksRestCall
+        snapCompletedGameOddsRestCall,
+        rollWeekRestCall
     } = useRestApi();
     const {useStompSubscription} = zWebSocket();
 
 
     const handleToggleChange = (event, newValues) => {
         if (!newValues) return; // prevent all off state
-        setShowTeamRecords(newValues.includes('records'));
-        setShowTeamWinStreaks(newValues.includes('streaks'));
-        setShowGameDate(newValues.includes('gamedate'));
-        setShowRanks(newValues.includes('ranks'));
-    };
-    const handleReset = () => {
-        // Reset dropdown selections
-        setSelectedSeasonId(currentSeason);
-        setSelectedWeek(currentWeek);
 
-        // Reset toggles to false
-        setShowTeamRecords(false);
-        setShowTeamWinStreaks(false);
-        setShowGameDate(false);
-        setShowRanks(false);
+        const prefs = {
+            teamRecordsToggle: newValues.includes('teamRecordsToggle'),
+            streaksToggle: newValues.includes('streaksToggle'),
+            gameDateToggle: newValues.includes('gameDateToggle'),
+            gameCategoryToggle: newValues.includes('gameCategoryToggle'),
+            gameOddsToggle: newValues.includes('gameOddsToggle'),
+        };
+
+        setShowTeamRecords(prefs.teamRecordsToggle);
+        setShowTeamWinStreaks(prefs.streaksToggle);
+        setShowGameDate(prefs.gameDateToggle);
+        setShowGameCategory(prefs.gameCategoryToggle);
+        setShowGameOdds(prefs.gameOddsToggle);
+
+        // 🟦 persist to browser
+        localStorage.setItem("GameScoresTogglePrefs", JSON.stringify(prefs));
     };
+    useEffect(() => {
+        const saved = localStorage.getItem("GameScoresTogglePrefs");
+        if (saved) {
+            const prefs = JSON.parse(saved);
+            setShowTeamRecords(prefs.teamRecordsToggle);
+            setShowTeamWinStreaks(prefs.streaksToggle);
+            setShowGameDate(prefs.gameDateToggle);
+            setShowGameCategory(prefs.gameCategoryToggle);
+            setShowGameOdds(prefs.gameOddsToggle);
+        }
+    }, []);
 
 
     // WebSocket message handler
@@ -124,76 +284,20 @@ const GameScoresPage = () => {
         if (event) {
             const updatedScores = event.gameScores;
             // Update the row data with the new scores
-            setGameScores(gameScore => {
-                return gameScore.map(row => {
+            setGameScorePageDTOs(gameScorePageDTO => {
+                return gameScorePageDTO.map(row => {
                     // Find if this game has an update
-                    const updatedScore = updatedScores.find(score => score.gameDTO.id === row.gameDTO.id);
-
-                    if (updatedScore) {
-                        return {
-                            ...row,
-                            home_score: updatedScore.home_score,
-                            away_score: updatedScore.away_score,
-                            completed: updatedScore.completed
-                        };
-                    }
-                    return row;
+                    const updatedScore = updatedScores.find(score => score.game_id === row.game_id);
+                    return updatedScore ? updatedScore : row;
                 });
             });
+            notify("Game Scores Updated", "Pages Refreshed", "success");
+
         }
     }, []);
 
-
-    // WebSocket message handler
-    const handleTeamWinStreakUpdateEvent = useCallback((event: TeamWinStreaksUpdatedEvent) => {
-        if (event) {
-            const updatedWinStreaks = event.teamWinStreaks;
-            // Update the row data with the new scores
-            setTeamWinStreaks(rowData => {
-                return rowData.map(row => {
-                    // Find if this game has an update
-                    const updatedStreak = updatedWinStreaks.find(streak => streak.team_id === row.team_id);
-
-                    if (updatedStreak) {
-                        return {
-                            ...row,
-                            streakType: updatedStreak.streakType,
-                            streakLength: updatedStreak.streakLength,
-                        };
-                    }
-                    return row;
-                });
-            });
-        }
-    }, []);
-
-    // WebSocket message handler
-    const handleTeamWinRecordUpdateEvent = useCallback((event: TeamWinRecordsUpdatedEvent) => {
-        if (event) {
-            const updatedWinRecords = event.teamWinRecords;
-            // Update the row data with the new scores
-            setTeamRecords(rowData => {
-                return rowData.map(row => {
-                    // Find if this game has an update
-                    const updatedRecord = updatedWinRecords.find(record => record.team_id === row.team_id);
-
-                    if (updatedRecord) {
-                        return {
-                            ...row,
-                            wins: updatedRecord.wins,
-                            losses: updatedRecord.losses,
-                            draws: updatedRecord.draws,
-                        };
-                    }
-                    return row;
-                });
-            });
-        }
-    }, []);
 
     useStompSubscription('/topic/zevents/GameScoreUpdate', handleGameScoredSavedEvent);
-    useStompSubscription('/topic/zevents/TeamWinStreakUpdate', handleTeamWinStreakUpdateEvent);
-    useStompSubscription('/topic/zevents/TeamWinRecordUpdate', handleTeamWinRecordUpdateEvent);
 
 
     const spin = keyframes`
@@ -210,101 +314,138 @@ const GameScoresPage = () => {
         setSelectedSeasonId(currentSeason);
     }, [currentSeason]);
 
-    // fetch game ranks
     useEffect(() => {
         if (currentWeek != 0)
             setSelectedWeek(currentWeek);
     }, [currentWeek]);
 
-    // fetch game ranks
+// fetch teams and weeks whenever sport or season changes
     useEffect(() => {
-        if (showRanks && selectedSeasonId != 0 && selectedWeek != 0) {
-            getGameRanksRestCall('americanfootball_nfl', selectedSeasonId, selectedWeek)
-                .then(setGameRanks)
-                .catch((err) => console.error("Error loading game ranks", err));
-        }
-    }, [selectedSeasonId, selectedWeek, showRanks]);
+        if (!selectedSport || !selectedSeasonId) return;
+
+        getTeamsAndWeeksBySportAndSeasonRestCall(selectedSport, selectedSeasonId)
+            .then(data => {
+                setTeams(data.teams);
+                setMaxAvailableWeek(data.maxWeekAvailable);
+
+                /*
+                                // If in team mode and previous selection still valid, keep it
+                                if (filterMode === 'team') {
+                                    const stillExists = data.teams.some(t => t.id === selectedTeamId);
+                                    if (!stillExists) setSelectedTeamId(null);
+                                }
+                */
+
+            })
+            .catch(err => {
+                setError('Failed to retrieve teams. ' + (err.message || 'Please try again.'));
+                setGameScorePageDTOs(null);
+            });
+
+    }, [selectedSport, selectedSeasonId]);
+
+// Clear table results whenever switching between team/week filters
+    useEffect(() => {
+        setGameScorePageDTOs([]);       // Clear table rows
+        //setSelectedTeamId(null); // Clear team selection
+    }, [filterMode, selectedSport]);
 
     // fetch game scores
     useEffect(() => {
-        if (selectedSeasonId == 0 || selectedWeek == 0) return;
+        if (selectedSeasonId == 0 || !setSelectedSport) return;
+        if (filterMode === 'team' && selectedTeamId == null) return;
+        if (filterMode === 'week' && selectedWeek == null) return;
+
         setLoading(true);
-        getGameScoresRestCall('americanfootball_nfl', selectedSeasonId, selectedWeek)
-            .then(setGameScores)
-            .catch((err) => console.error("Error loading game score", err))
-            .finally(() => setLoading(false));
-    }, [selectedSeasonId, selectedWeek]);
+        setError(null);
+        try {
+            if (filterMode === 'week') {
+                getGameScoresByWeekRestCall(selectedSport, selectedSeasonId, selectedWeek).then(data => {
+                    setGameScorePageDTOs(data.records)
+                }).catch(err => {
+                    setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
+                    setGameScorePageDTOs(null);
+                })
+            } else {
+                getGameScoresByTeamRestCall(selectedSport, selectedSeasonId, selectedTeamId ? selectedTeamId : -1).then(data => {
+                    setGameScorePageDTOs(data.records)
+                })
+                    .catch(err => {
+                        setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
+                        setGameScorePageDTOs(null);
+                    })
 
-
-    // fetch team win streaks
-    useEffect(() => {
-        if (showTeamWinStreaks && selectedSeasonId != 0 && selectedWeek != 0) {
-            getTeamWinStreaksRestCall('americanfootball_nfl', selectedSeasonId, selectedWeek)
-                .then(setTeamWinStreaks)
-                .catch((err) => console.error("Error loading game ranks", err));
+            }
+        } finally {
+            setLoading(false);
         }
-    }, [selectedSeasonId, selectedWeek, showTeamWinStreaks]);
-
-
-    // fetch team win records
-    useEffect(() => {
-        if (showTeamRecords && selectedSeasonId != 0 && selectedWeek != 0) {
-            getTeamRecordsRestCall('americanfootball_nfl', selectedSeasonId, selectedWeek)
-                .then(setTeamRecords)
-                .catch((err) => console.error("Error loading team records", err));
-        }
-    }, [selectedSeasonId, selectedWeek, showTeamRecords]);
-
-
-    const getTeamStreakDisplay = (teamId: number) => {
-        if (!teamWinStreaks?.length) return '';
-
-        const streak = teamWinStreaks.find((s) => s.team_id === teamId);
-        if (!streak) return '';
-
-        return `${streak.streakType}${streak.streakLength}`;
-    };
-
-    const getTeamRecordDisplay = (teamId: number) => {
-        if (!teamRecords?.length) return '';
-
-        const teamRecord = teamRecords.find((s) => s.team_id === teamId);
-        if (!teamRecord) return '';
-
-        return `${teamRecord.wins}-${teamRecord.losses}-${teamRecord.draws}`;
-    };
+    }, [selectedSport, selectedSeasonId, selectedWeek, selectedTeamId]);
 
     // Helper function to determine if away team won
-    const isAwayWinner = (data) => {
+    const isAwayWinner = (data: GameScorePageDTO) => {
         return data.completed && data.away_score > data.home_score;
     };
 
     // Helper function to determine if home team won
-    const isHomeWinner = (data) => {
+    const isHomeWinner = (data: GameScorePageDTO) => {
         return data.completed && data.home_score > data.away_score;
     };
 
 
-    const handleSeasonChange = (event) => {
-        const season = seasons.find((s) => s.id === event.target.value);
-        setSelectedSeasonId(season.id);
-    };
-
-    const handleWeekChange = (event) => {
-        const week = event.target.value;
-        setSelectedWeek(week);
-    };
-
-    const handleSnapGameScores = async () => {
+    const handleSnapGameScoresAction = async () => {
         try {
-            setSnapping(true);
+            setSnappingScores(true);
             setError(null);
-            await snapCompletedGameScoresRestCall(selectedSeasonId, selectedWeek);
-            // Game scores will be refreshed from notification event
+            const gameScoreSnapStatus = await snapCompletedGameScoresRestCall(selectedSport, selectedSeasonId, selectedWeek);
+
+            // 🟦 Show disappearing tooltip
+            setSnapScoresMessage(gameScoreSnapStatus || "Snap successful");
+            setShowSnapScoreTooltip(true);
+
+            setTimeout(() => setShowSnapScoreTooltip(false), 3000);
+
         } catch (err) {
             setError('Failed to snap game scores. ' + (err.message || 'Please try again.'));
         } finally {
-            setSnapping(false);
+            setSnappingScores(false);
+        }
+    };
+
+    const handleSnapGameOddsAction = async () => {
+        try {
+            setSnappingOdds(true);
+            setError(null);
+            const oddsSnapStatus = await snapCompletedGameOddsRestCall(selectedSeasonId, selectedWeek);
+
+            // 🟦 Show disappearing tooltip
+            setSnapOddsMessage(oddsSnapStatus || "Snap successful");
+            setShowSnapOddsTooltip(true);
+
+            setTimeout(() => setShowSnapOddsTooltip(false), 3000);
+
+        } catch (err) {
+            setError('Failed to snap game odds. ' + (err.message || 'Please try again.'));
+        } finally {
+            setSnappingOdds(false);
+        }
+    };
+
+    const handleRollWeekAction = async () => {
+        try {
+            setRollingWeek(true);
+            setError(null);
+            const rollingWeekReturnMessage = await rollWeekRestCall();
+
+            // 🟦 Show disappearing tooltip
+            setRollingWeekReturnMessage(rollingWeekReturnMessage || "Successful Rolled Week");
+            setShowRollingWeekTooltip(true);
+
+            setTimeout(() => setShowRollingWeekTooltip(false), 3000);
+
+        } catch (err) {
+            setError('Failed to roll the week. ' + (err.message || 'Please try again.'));
+        } finally {
+            setRollingWeek(false);
         }
     };
 
@@ -329,15 +470,70 @@ const GameScoresPage = () => {
         );
     }
 
+    const getOpponentInfo = (game, selectedTeamId) => {
+        const isSelectedHome = selectedTeamId === game.home_team_id;
+
+        const opponentIsHome = !isSelectedHome; // if selected team is away, opponent is home
+
+        const name = isSelectedHome
+            ? game.away_team_name
+            : game.home_team_name;
+
+        const team_ext_id = isSelectedHome
+            ? game.away_team_ext_id
+            : game.home_team_ext_id;
+
+        const wins = isSelectedHome ? game.away_wins : game.home_wins;
+        const losses = isSelectedHome ? game.away_losses : game.home_losses;
+        const ties = isSelectedHome ? game.away_ties : game.home_ties;
+
+        const streak = isSelectedHome
+            ? game.away_current_streak
+            : game.home_current_streak;
+
+        // Determine win/loss/push
+        let status = "incomplete";
+        if (game.completed) {
+            const opponentWon =
+                (isSelectedHome && game.away_score > game.home_score) ||
+                (!isSelectedHome && game.home_score > game.away_score);
+
+            const opponentLost =
+                (isSelectedHome && game.away_score < game.home_score) ||
+                (!isSelectedHome && game.home_score < game.away_score);
+
+            if (opponentWon) status = "Win";
+            else if (opponentLost) status = "Loss";
+            else status = "Push";
+        }
+
+        const opponentId = isSelectedHome
+            ? game.away_team_id
+            : game.home_team_id;
+
+        return {
+            opponentId,
+            name,
+            team_ext_id,
+            wins,
+            losses,
+            ties,
+            streak,
+            status,
+            opponentIsHome,
+        };
+    };
+
+
     // Generate week options
-    const weekOptions = [];
-    for (let week = 1; week <= 18; week++) {
-        weekOptions.push(
-            <MenuItem key={week} value={week}>
-                Week {week}
-            </MenuItem>
-        );
-    }
+    const range = (start: number, end: number) =>
+        Array.from({length: end - start + 1}, (_, i) => start + i);
+
+    const weekOptions = range(1, maxAvailableWeek).map(week => (
+        <MenuItem key={week} value={week}>
+            Week {week}
+        </MenuItem>
+    ));
 
 
     return (
@@ -348,27 +544,30 @@ const GameScoresPage = () => {
                     <h1>Game Scores</h1>
                 </Box>
 
-                <Box sx={{display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap'}}>
+                <Box sx={{display: 'flex', alignItems: "flex-end", gap: 2, mb: 3, flexWrap: 'wrap'}}>
 
-                    <Tooltip title="Reset to Current Season ">
-                        <IconButton
-                            color="primary"
-                            onClick={handleReset}
-                            sx={{
-                                height: 56,
-                                width: 56,
-                                borderRadius: 2,
-                                boxShadow: 1,
-                                mr: 1,
-                                bgcolor: "action.hover",
-                                '&:hover': {bgcolor: 'primary.main', color: 'white'},
+                    {/* Sport Selector */}
+                    <FormControl sx={{minWidth: 150}}>
+                        <InputLabel id="sport-selector-label">
+                            Spor<u>t</u>
+                        </InputLabel>
+                        <Select
+                            labelId="sport-selector-label"
+                            id="sportSelector"
+                            value={selectedSport || ''}
+                            label="Sport"
+                            accessKey="t"
+                            onChange={(e, value) => {
+                                setSelectedTeamId(null);
+                                setSelectedWeek(null);
+                                setSelectedSport(e.target.value);
                             }}
                         >
-                            <RestartAltIcon/>
-                        </IconButton>
-                    </Tooltip>
+                            <MenuItem key="1" value="americanfootball_nfl">NFL</MenuItem>
+                            <MenuItem key="2" value="americanfootball_ncaaf">NCAAF</MenuItem>
 
-
+                        </Select>
+                    </FormControl>
                     {/* Season Selector */}
                     <FormControl sx={{minWidth: 150}}>
                         <InputLabel id="seasons-selector-label">
@@ -380,7 +579,9 @@ const GameScoresPage = () => {
                             value={selectedSeasonId || ''}
                             label="Season"
                             accessKey="S"
-                            onChange={handleSeasonChange}
+                            onChange={(e, value) => {
+                                setSelectedSeasonId(e.target.value);
+                            }}
                         >
                             {seasons.map((season) => (
                                 <MenuItem key={season.id} value={season.id}>
@@ -389,29 +590,63 @@ const GameScoresPage = () => {
                             ))}
                         </Select>
                     </FormControl>
+                    {/* Filter Mode Selector between team vs week based */}
+                    <Box display="flex" flexDirection="column" sx={{ml: 1}}>
+                        <FormControl component="fieldset">
+                            <RadioGroup
+                                row
+                                value={filterMode}
+                                onChange={(e) => setFilterMode(e.target.value)}
+                            >
+                                <FormControlLabel value="week" control={<Radio size="small"/>} label="Week"/>
+                                <FormControlLabel value="team" control={<Radio size="small"/>} label="Team"/>
+                            </RadioGroup>
+                        </FormControl>
 
-                    {/* Week Selector */}
-                    <FormControl sx={{minWidth: 150}}>
-                        <InputLabel id="week-selector-label">
-                            <u>W</u>eek
-                        </InputLabel>
-                        <Select
-                            labelId="week-selector-label"
-                            id="weekSelector"
-                            value={selectedWeek || ''}
-                            label="Week"
-                            accessKey="W"
-                            onChange={handleWeekChange}
-                        >
-                            {weekOptions}
-                        </Select>
-                    </FormControl>
+
+                        {/* Week Selector */}
+                        {filterMode === 'week' && (
+                            <FormControl sx={{minWidth: 150}}>
+                                <InputLabel id="week-selector-label">
+                                    <u>W</u>eek
+                                </InputLabel>
+                                <Select
+                                    labelId="week-selector-label"
+                                    id="weekSelector"
+                                    value={selectedWeek || ''}
+                                    label="Week"
+                                    accessKey="W"
+                                    onChange={(e) => setSelectedWeek(e.target.value)}
+                                >
+                                    {weekOptions}
+                                </Select>
+                            </FormControl>
+                        )}
+                        {filterMode === 'team' && (
+                            <FormControl sx={{minWidth: 200}}>
+                                <InputLabel id="team-selector-label">Tea<u>m</u></InputLabel>
+                                <Select
+                                    labelId="team-selector-label"
+                                    id="teamSelector"
+                                    value={selectedTeamId || ''}
+                                    label="Team"
+                                    accessKey="m"
+                                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                                >
+                                    {teams.map(team => (
+                                        <MenuItem key={team.id} value={team.id}>{team.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        )}
+                    </Box>
                     <ToggleButtonGroup
                         value={[
-                            ...(showTeamRecords ? ['records'] : []),
-                            ...(showTeamWinStreaks ? ['streaks'] : []),
-                            ...(showGameDate ? ['gamedate'] : []),
-                            ...(showRanks ? ['gameranks'] : []),
+                            ...(showTeamRecords ? ['teamRecordsToggle'] : []),
+                            ...(showTeamWinStreaks ? ['streaksToggle'] : []),
+                            ...(showGameDate ? ['gameDateToggle'] : []),
+                            ...(showGameCategory ? ['gameCategoryToggle'] : []),
+                            ...(showGameOdds ? ['gameOddsToggle'] : []),
 
                         ]}
                         onChange={handleToggleChange}
@@ -423,93 +658,89 @@ const GameScoresPage = () => {
                             boxShadow: 1,
                         }}
                     >
-                        <Tooltip title={showTeamRecords ? "Hide Team Records" : "Show Team Records"}>
-                            <ToggleButton
-                                value="records"
-                                aria-label="records"
-                                sx={{
-                                    px: 2,
-                                    transition: 'all 0.2s ease',
-                                    bgcolor: showTeamRecords ? 'primary.light' : 'transparent',
-                                    '&:hover': {
-                                        bgcolor: showTeamRecords ? 'primary.main' : 'action.hover',
-                                    },
-                                    '&.Mui-selected': {
-                                        bgcolor: 'primary.light',
-                                        color: 'primary.main',
-                                        '&:hover': {bgcolor: 'primary.main', color: 'white'},
-                                    },
-                                }}
-                            >
-                                <EmojiEventsIcon color={showTeamRecords ? "primary" : "action"}/>
-                            </ToggleButton>
-                        </Tooltip>
 
-                        <Tooltip title={showTeamWinStreaks ? "Hide Win Streaks" : "Show Win Streaks"} arrow={true}>
-                            <ToggleButton
-                                value="streaks"
-                                aria-label="streaks"
-                                sx={{
-                                    px: 2,
-                                    transition: 'all 0.2s ease',
-                                    bgcolor: showTeamWinStreaks ? 'primary.light' : 'transparent',
-                                    '&:hover': {
-                                        bgcolor: showTeamWinStreaks ? 'primary.main' : 'action.hover',
-                                    },
-                                    '&.Mui-selected': {
-                                        bgcolor: 'primary.light',
-                                        color: 'primary.main',
-                                        '&:hover': {bgcolor: 'primary.main', color: 'white'},
-                                    },
-                                }}
-                            >
-                                <RepeatIcon color={showTeamWinStreaks ? "primary" : "action"}/>
-                            </ToggleButton>
-                        </Tooltip>
-
-                        <Tooltip title={showGameDate ? "Hide Game Date" : "Show Game Date"}>
-                            <ToggleButton
-                                value="gamedate"
-                                aria-label="game date"
-                                sx={{
-                                    px: 2,
-                                    transition: 'all 0.2s ease',
-                                    bgcolor: showGameDate ? 'primary.light' : 'transparent',
-                                    '&:hover': {
-                                        bgcolor: showGameDate ? 'primary.main' : 'action.hover',
-                                    },
-                                    '&.Mui-selected': {
-                                        bgcolor: 'primary.light',
-                                        color: 'primary.main',
-                                        '&:hover': {bgcolor: 'primary.main', color: 'white'},
-                                    },
-                                }}
-                            >
-                                <ScheduleIcon color={showGameDate ? "primary" : "action"}/>
-                            </ToggleButton>
-                        </Tooltip>
-                        <Tooltip title={showRanks ? "Hide Game Ranks" : "Show Game Rank"}>
-                            <ToggleButton
-                                value="ranks"
-                                selected={showRanks}
-                                onChange={() => setShowRanks((prev) => !prev)}
-                            >
-                                <StarIcon sx={{mr: 1}}/>
-                            </ToggleButton>
-                        </Tooltip>
+                        <ToggleButtonRenderer showToggle={showTeamRecords} toggleName="Team Records"
+                                              toggleKey="teamRecordsToggle"
+                                              Icon={EmojiEventsIcon}/>
+                        <ToggleButtonRenderer showToggle={showTeamWinStreaks} toggleName="Team Streaks"
+                                              toggleKey="streaksToggle" Icon={RepeatIcon}/>
+                        <ToggleButtonRenderer showToggle={showGameDate} toggleName="Game Date"
+                                              toggleKey="gameDateToggle"
+                                              Icon={ScheduleIcon}/>
+                        {selectedSport == 'americanfootball_nfl' && (
+                            <ToggleButtonRenderer showToggle={showGameCategory} toggleName="Game Category"
+                                                  toggleKey="gameCategoryToggle" Icon={StarIcon}/>)
+                        }
+                        <ToggleButtonRenderer showToggle={showGameOdds} toggleName="Game Odds"
+                                              toggleKey="gameOddsToggle"
+                                              Icon={TrendingFlatIcon}/>
                     </ToggleButtonGroup>
 
                     {/* Snap Game Scores Button - Admin Only */}
                     {isAdmin && (
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={handleSnapGameScores}
-                            disabled={snapping || !selectedSeasonId || !selectedWeek}
-                            sx={{height: 56}}
+                        <Tooltip
+                            title={snapScoresMessage.quotaUsageStatus}
+                            placement="top"
+                            open={showSnapScoreTooltip}
+                            disableHoverListener
+                            disableFocusListener
+                            disableTouchListener
+                            arrow
                         >
-                            {snapping ? <CircularProgress size={24}/> : 'Snap Game Scores'}
-                        </Button>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleSnapGameScoresAction}
+                                disabled={snappingScores || !selectedSeasonId || !selectedWeek}
+                                sx={{height: 56}}
+                            >
+                                {snappingScores ? <CircularProgress size={24}/> : 'Snap Game Scores'}
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {/* Snap Game Odds Button - Admin Only */}
+                    {isAdmin && (
+                        <Tooltip
+                            title={snapOddsMessage.quotaUsageStatus}
+                            placement="top"
+                            open={showSnapOddsTooltip}
+                            disableHoverListener
+                            disableFocusListener
+                            disableTouchListener
+                            arrow
+                        >
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleSnapGameOddsAction}
+                                disabled={snappingOdds || !selectedSeasonId || !selectedWeek}
+                                sx={{height: 56}}
+                            >
+                                {snappingOdds ? <CircularProgress size={24}/> : 'Snap Game Odds'}
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {/* Roll Week Button - Admin Only */}
+                    {isAdmin && (
+                        <Tooltip
+                            title={rollingWeekReturnMessage.status}
+                            placement="top"
+                            open={showRollingWeekTooltip}
+                            disableHoverListener
+                            disableFocusListener
+                            disableTouchListener
+                            arrow
+                        >
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleRollWeekAction}
+                                disabled={rollingWeek || !selectedSeasonId || !selectedWeek}
+                                sx={{height: 56}}
+                            >
+                                {rollingWeek ? <CircularProgress size={24}/> : 'Roll Game Week'}
+                            </Button>
+                        </Tooltip>
                     )}
 
                 </Box>
@@ -521,80 +752,154 @@ const GameScoresPage = () => {
                 )}
 
                 <TableContainer component={Paper} sx={{maxHeight: 1200}}>
-                    <Table stickyHeader size="small">
+                    <Table stickyHeader size="small" sx={{
+                        "& td, & th": {
+                            padding: "4px 6px",        // tighter vertical + horizontal padding
+                            whiteSpace: "nowrap"
+                        }
+                    }}>
+
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{width: 'auto'}}>Away</TableCell>
-                                <TableCell sx={{width: 'auto'}}>Home</TableCell>
-                                <TableCell sx={{width: 'auto'}}>Score</TableCell>
+                                <TableCell></TableCell>
+                                {filterMode == 'week' && (<TableCell>Away</TableCell>)}
+                                {filterMode == 'team' && (<TableCell sx={{
+                                    maxWidth: 120,
+                                    width: 120,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    padding: "4px 6px"
+                                }}>Opponent</TableCell>)}
+                                {filterMode == 'week' && (<TableCell>Home</TableCell>)}
+                                {showGameOdds  && (<TableCell>O/U</TableCell>)}
+
+                                <TableCell>Score</TableCell>
                                 {showGameDate && <TableCell>Game Date</TableCell>}
-                                {showRanks && <TableCell>Game Rank</TableCell>}
+                                {selectedSport == 'americanfootball_nfl' && showGameCategory && (
+                                    <TableCell>
+                                        <HeaderWithTooltip
+                                            label="Game Rank"
+                                            tooltip="Game Rank indicates the importance or tier of the matchup (e.g., Prime, Featured, Standard)."
+                                        />
+                                    </TableCell>
+                                )}
 
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {gameScores.map((gameScore, index) => (
-                                <TableRow
-                                    key={gameScore.gameDTO.id || index}
-                                    sx={{
-                                        '&:hover': {
-                                            backgroundColor: 'action.hover'
-                                        }
-                                    }}
-                                >
-                                    <TableCell>
-                                        <TeamCellRenderer
-                                            name={gameScore.gameDTO.away_team.name}
-                                            logo={gameScore.gameDTO.away_team.logo}
-                                            getBaseImageUrl={getBaseImageUrl}
-                                            streak={!showTeamWinStreaks ? '' : getTeamStreakDisplay(gameScore.gameDTO.away_team.id)}
-                                            record={!showTeamRecords ? '' : getTeamRecordDisplay(gameScore.gameDTO.away_team.id)}
-                                            status={!gameScore.completed ? "incomplete" : isAwayWinner(gameScore) ? "Win" : isHomeWinner(gameScore) ? "Loss" : "Push"}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TeamCellRenderer
-                                            name={gameScore.gameDTO.home_team.name}
-                                            logo={gameScore.gameDTO.home_team.logo}
-                                            getBaseImageUrl={getBaseImageUrl}
-                                            streak={!showTeamWinStreaks ? '' : getTeamStreakDisplay(gameScore.gameDTO.home_team.id)}
-                                            record={!showTeamRecords ? '' : getTeamRecordDisplay(gameScore.gameDTO.home_team.id)}
-                                            status={!gameScore.completed ? "incomplete" : isHomeWinner(gameScore) ? "Win" : isAwayWinner(gameScore) ? "Loss" : "Push"}
-                                        />
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        {!gameScore.completed ? '' : `${gameScore.away_score} - ${gameScore.home_score}`}
-                                    </TableCell>
+                            {gameScorePageDTOs && gameScorePageDTOs.map((gameScorePageDTO, index) => {
+                                    const homeSpread = gameScorePageDTO.home_team_spread;
 
-                                    {showGameDate && (
-                                        <TableCell>
-                                            {formatDate(gameScore.gameDTO.commence_time, isMobile)}
-                                        </TableCell>
-                                    )}
-                                    {showRanks && (
-                                        <TableCell>
-                                            {(() => {
-                                                const rank = gameRanks.find((r) => r.gameId === gameScore.gameDTO.id);
-                                                if (!rank) return "";
-                                                const colorMap = {
-                                                    Difficult: "error",
-                                                    Hard: "warning",
-                                                    Medium: "info",
-                                                    Easy: "success",
-                                                };
-                                                return (
-                                                    <Chip
-                                                        label={`${rank.rankType} (${rank.homeRank} vs ${rank.awayRank})`}
-                                                        color={colorMap[rank.rankType]}
-                                                        variant="filled"
-                                                        size="small"
+                                    return (
+                                        <TableRow
+                                            key={gameScorePageDTO.game_id || index}
+                                            sx={{
+                                                '&:hover': {
+                                                    backgroundColor: 'action.hover'
+                                                }
+                                            }}
+                                        >
+                                            <TableCell>{index + 1}</TableCell>
+
+                                            {filterMode == 'week' && (
+                                                <TableCell>
+                                                    <TeamCellRenderer
+                                                        name={gameScorePageDTO.away_team_name}
+                                                        ext_id={gameScorePageDTO.away_team_ext_id}
+                                                        streak={!showTeamWinStreaks || !gameScorePageDTO.completed ? '' : gameScorePageDTO.away_current_streak}
+                                                        record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.away_wins}-${gameScorePageDTO.away_losses}-${gameScorePageDTO.away_ties}`}
+                                                        status={!gameScorePageDTO.completed ? "incomplete" : isAwayWinner(gameScorePageDTO) ? "Win" : isHomeWinner(gameScorePageDTO) ? "Loss" : "Push"}
+                                                        highlightTeam={filterMode === 'team' && selectedTeamId == gameScorePageDTO.away_team_id}
+                                                        onClickTeam={() => {
+                                                            setFilterMode('team');
+                                                            setSelectedTeamId(gameScorePageDTO.away_team_id);
+                                                        }}
+                                                        homeTeamSpread={null}  // this is the away team
+                                                        sport={selectedSport}
                                                     />
-                                                );
-                                            })()}
-                                        </TableCell>
-                                    )}
-                                </TableRow>
-                            ))}
+                                                </TableCell>)}
+                                            {filterMode === 'team' && (
+                                                <TableCell>
+                                                    {(() => {
+                                                        const opp = getOpponentInfo(gameScorePageDTO, selectedTeamId);
+                                                        const displayAtSign = opp.opponentIsHome ? `@` : ``;
+
+                                                        return (
+                                                            <OpponentCellRenderer
+                                                                name={opp.name}
+                                                                ext_id={opp.team_ext_id}
+                                                                displayAtSign={displayAtSign}
+                                                                record={
+                                                                    !showTeamRecords || !gameScorePageDTO.completed
+                                                                        ? ''
+                                                                        : `${opp.wins}-${opp.losses}-${opp.ties}`
+                                                                }
+                                                                streak={
+                                                                    !showTeamWinStreaks || !gameScorePageDTO.completed
+                                                                        ? ''
+                                                                        : opp.streak
+                                                                }
+                                                                status={opp.status}
+                                                                onClickTeam={() => {
+                                                                    setFilterMode('team');
+                                                                    setSelectedTeamId(opp.opponentId);
+                                                                }}
+                                                                sport={selectedSport}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </TableCell>
+                                            )}
+
+                                            {filterMode == 'week' && (
+                                                <TableCell>
+                                                    <TeamCellRenderer
+                                                        name={gameScorePageDTO.home_team_name}
+                                                        ext_id={gameScorePageDTO.home_team_ext_id}
+                                                        streak={!showTeamWinStreaks || !gameScorePageDTO.completed ? '' : gameScorePageDTO.home_current_streak}
+                                                        record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.home_wins}-${gameScorePageDTO.home_losses}-${gameScorePageDTO.home_ties}`}
+                                                        status={!gameScorePageDTO.completed ? "incomplete" : isHomeWinner(gameScorePageDTO) ? "Win" : isAwayWinner(gameScorePageDTO) ? "Loss" : "Push"}
+                                                        highlightTeam={filterMode === 'team' && selectedTeamId == gameScorePageDTO.home_team_id}
+                                                        onClickTeam={() => {
+                                                            setFilterMode('team');
+                                                            setSelectedTeamId(gameScorePageDTO.home_team_id);
+                                                        }}
+                                                        homeTeamSpread={!showGameOdds || (homeSpread == null || homeSpread == '') ? null : `(${homeSpread})`}
+                                                        sport={selectedSport}
+                                                    />
+                                                </TableCell>)}
+                                            <TableCell>
+                                                {showGameOdds ? (
+                                                    <Tooltip title={`Bookmaker stamp: ${gameScorePageDTO.bookmaker_stamp}`}
+                                                             arrow children={undefined}>
+                                                        <span>{gameScorePageDTO.over_points}</span>
+                                                    </Tooltip>
+                                                ) : null}
+                                            </TableCell>
+                                            <TableCell>
+                                                <ScoreCellRenderer
+                                                    game={gameScorePageDTO}
+                                                    filterMode={filterMode}
+                                                    selectedTeamId={selectedTeamId}
+                                                />
+                                            </TableCell>
+
+                                            {showGameDate && (
+                                                <TableCell>
+                                                    {formatDate(gameScorePageDTO.commence_time, isMobile)}
+                                                </TableCell>
+                                            )}
+                                            {selectedSport == 'americanfootball_nfl' && showGameCategory && (
+                                                <TableCell> <GameCategoryRenderer rankType={gameScorePageDTO.rank_type}
+                                                                                  homeRank={gameScorePageDTO.home_rank_preseason}
+                                                                                  awayRank={gameScorePageDTO.away_rank_preseason}/>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    )
+                                }
+                            )
+                            }
                         </TableBody>
                     </Table>
                 </TableContainer>
