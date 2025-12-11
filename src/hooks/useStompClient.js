@@ -7,13 +7,14 @@ import {useRestApi} from '../api/RestInvocations';
 export const zWebSocket = () => {
     const clientRef = useRef(null);
     const {getWebSocketEndpoint} = useRestApi();
-    const [isConnected, setIsConnected] = useState(false);
+    const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
 
     useEffect(() => {
-        if (isConnected) return;
+        if (isWebSocketConnected) return;
             const client = new Client({
                 webSocketFactory: () => new SockJS(getWebSocketEndpoint()),
                 reconnectDelay: 5000,
+                reconnectAttempts: 5,
                 heartbeatIncoming: 4000,
                 heartbeatOutgoing: 4000,
 
@@ -25,19 +26,19 @@ export const zWebSocket = () => {
 
                 onConnect: () => {
                     //console.log('WebSocket connected');
-                    setIsConnected(true);
+                    setIsWebSocketConnected(true);
                 },
                 onStompError: (frame) => {
-                    console.error('STOMP error:', frame);
-                    setIsConnected(false);
+                   // console.error('STOMP error:', frame);
+                    setIsWebSocketConnected(false);
                 },
                 onWebSocketClose: (event) => {
-                    console.log('WebSocket closed with code=%s, wasClean=%s, reason=%s', event.code, event.wasClean, event.reason);
-                    setIsConnected(false);
+                    //console.log('WebSocket closed with code=%s, wasClean=%s, reason=%s', event.code, event.wasClean, event.reason);
+                    setIsWebSocketConnected(false);
                 },
                 onWebSocketError: (error) => {
-                    console.error('WebSocket error:', error);
-                    setIsConnected(false);
+                    //console.error('WebSocket error:', error);
+                    setIsWebSocketConnected(false);
                 }
             });
 
@@ -59,15 +60,15 @@ export const zWebSocket = () => {
         const { current: client } = clientRef;
 
         useEffect(() => {
-            if (!client || !topic || !isConnected) return;
+            if (!client || !topic || !isWebSocketConnected) return;
 
             const subscription = client.subscribe(topic, (message) => {
                 handler(JSON.parse(message.body));
             });
-            //console.log("Subscribing to", topic, "isConnected:", isConnected);
+            //console.log("Subscribing to", topic, "isWebSocketConnected:", isWebSocketConnected);
 
             return () => subscription.unsubscribe();
-        }, [topic, handler, isConnected]);
+        }, [topic, handler, isWebSocketConnected]);
     }
 
 

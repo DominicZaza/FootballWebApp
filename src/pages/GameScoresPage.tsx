@@ -208,6 +208,7 @@ const GameScoresPage = () => {
     const [gameScorePageDTOs, setGameScorePageDTOs] = useState<GameScorePageDTO[]>([]);
     const [snappingScores, setSnappingScores] = useState<boolean>(false);
     const [snappingOdds, setSnappingOdds] = useState<boolean>(false);
+    const [snappingCollegePlayoffGames, setSnappingCollegePlayoffGames] = useState<boolean>(false);
     const [rollingWeek, setRollingWeek] = useState<boolean>(false);
     const {isAdmin, isMobile, currentWeek, currentSeason, seasons} = useZAppContext();
     //toggle states
@@ -222,8 +223,10 @@ const GameScoresPage = () => {
     const [snapOddsMessage, setSnapOddsMessage] = useState('');
     const [showSnapScoreTooltip, setShowSnapScoreTooltip] = useState(false);
     const [showSnapOddsTooltip, setShowSnapOddsTooltip] = useState(false);
+    const [showSnapCollegePlayoffGamesTooltip, setShowSnapCollegePlayoffGamesTooltip] = useState(false);
     const [showRollingWeekTooltip, setShowRollingWeekTooltip] = useState(false);
     const [rollingWeekReturnMessage, setRollingWeekReturnMessage] = useState('');
+    const [collegePlayoffGamesRestCallReturnMessage, setCollegePlayoffGamesRestCallReturnMessage] = useState('');
     const {notify} = useNotify();
 // Filtering mode: "week" or "team"
     const [filterMode, setFilterMode] = useState<'week' | 'team'>('week');
@@ -241,7 +244,8 @@ const GameScoresPage = () => {
         getTeamsAndWeeksBySportAndSeasonRestCall,
         snapCompletedGameScoresRestCall,
         snapCompletedGameOddsRestCall,
-        rollWeekRestCall
+        rollWeekRestCall,
+        createCollegePlayoffGamesRestCall
     } = useRestApi();
     const {useStompSubscription} = zWebSocket();
 
@@ -446,6 +450,25 @@ const GameScoresPage = () => {
             setError('Failed to roll the week. ' + (err.message || 'Please try again.'));
         } finally {
             setRollingWeek(false);
+        }
+    };
+
+    const handleSnapCollegePlayoffGamesAction = async () => {
+        try {
+            setSnappingCollegePlayoffGames(true);
+            setError(null);
+            const restCallReturnMessage = await createCollegePlayoffGamesRestCall();
+
+            // 🟦 Show disappearing tooltip
+            setCollegePlayoffGamesRestCallReturnMessage(restCallReturnMessage || "Successful Created College Games");
+            setShowSnapCollegePlayoffGamesTooltip(true);
+
+            setTimeout(() => setShowSnapCollegePlayoffGamesTooltip(false), 3000);
+
+        } catch (err) {
+            setError('Failed to  create college playoff games. ' + (err.message || 'Please try again.'));
+        } finally {
+            setSnappingCollegePlayoffGames(false);
         }
     };
 
@@ -739,6 +762,28 @@ const GameScoresPage = () => {
                                 sx={{height: 56}}
                             >
                                 {rollingWeek ? <CircularProgress size={24}/> : 'Roll Game Week'}
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {/* Create College Playoff Games - Admin Only */}
+                    {isAdmin && (
+                        <Tooltip
+                            title={collegePlayoffGamesRestCallReturnMessage.status}
+                            placement="top"
+                            open={showSnapCollegePlayoffGamesTooltip}
+                            disableHoverListener
+                            disableFocusListener
+                            disableTouchListener
+                            arrow
+                        >
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleSnapCollegePlayoffGamesAction}
+                                disabled={snappingCollegePlayoffGames}
+                                sx={{height: 56}}
+                            >
+                                {snappingCollegePlayoffGames ? <CircularProgress size={24}/> : 'Create College Playoff Games'}
                             </Button>
                         </Tooltip>
                     )}

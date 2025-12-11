@@ -52,6 +52,7 @@ export interface ApplicationSettingsDTO {
     id: number;
     season: number;
     week: number;
+    currentPeriod: string;
     stamp: string;
 }
 

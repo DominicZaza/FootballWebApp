@@ -48,6 +48,7 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
         authUser,
         setCurrentWeek,
         setCurrentSeason,
+        setCurrentPeriod,
         setAccountBalance,
         accountBalance,
         isAdmin, setIsAdmin,
@@ -68,6 +69,8 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
         getEntriesRestCall,
         logoutRestCall,
         getCurrentWeekRestCall,
+        getCurrentSeasonRestCall,
+        getCurrentPeriodRestCall,
         getMyAccountBalanceRestCall,
         getMyAccountDetailRestCall,
         getAllSeasonsRestCall
@@ -134,16 +137,33 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
     }, [authUser]);
 
 
-    // Load Current week and season
+    // Load Current week
     useEffect(() => {
         if (!authUser) return;
         setLoading(true);
         getCurrentWeekRestCall()
-            .then(currentWeekAndSeason => {
-                setCurrentWeek(currentWeekAndSeason.week);
-                setCurrentSeason(currentWeekAndSeason.season);
-            })
-            .catch(err => console.error("Fetch current week and season error:", err))
+            .then(setCurrentWeek)
+            .catch(err => console.error("Fetch current week  error:", err))
+            .finally(() => setLoading(false));
+    }, [authUser]);
+
+    // Load Current season
+    useEffect(() => {
+        if (!authUser) return;
+        setLoading(true);
+        getCurrentSeasonRestCall()
+            .then(setCurrentSeason)
+            .catch(err => console.error("Fetch current season  error:", err))
+            .finally(() => setLoading(false));
+    }, [authUser]);
+
+    // Load Current period
+    useEffect(() => {
+        if (!authUser) return;
+        setLoading(true);
+        getCurrentPeriodRestCall()
+            .then(setCurrentPeriod)
+            .catch(err => console.error("Fetch current period  error:", err))
             .finally(() => setLoading(false));
     }, [authUser]);
 
@@ -353,9 +373,9 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
                     variant="standard"
                     sx={{ display: 'inline-flex', minWidth: 'max-content' }}
                 >
-                    <Tab label="Weekly Picks" />
+                    <Tab label="All Picks" />
                     <Tab label="Leaderboard" />
-                    <Tab label="My Games" />
+                    <Tab label="My Picks" />
                     <Tab label="Game Scores" />
                     {isAdmin && <Tab label="Team Rankings (Admin Only)" />}
                 </Tabs>
@@ -368,7 +388,7 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
                 {currentTab === 0 && <WeeklyPicksPage />}
                 {currentTab === 1 && <LeaderboardPage />}
                 {currentTab === 2 && <AssignedGamesPage />}
-                {currentTab === 3 && <GameScoresPage />}
+                {currentTab === 3 && (<GameScoresPage />)}
                 {currentTab === 4 && isAdmin && <TeamRankingsAdminPage />}
             </Box>
 

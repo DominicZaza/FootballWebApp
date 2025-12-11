@@ -13,6 +13,7 @@ export const AppProvider = ({children}) => {
     const [seasons, setSeasons] = useState<SeasonDTO[]>([]);
     const [currentWeek, setCurrentWeek ] = useState<number>(0);
     const [currentSeason, setCurrentSeason ] = useState<number>(0);
+    const [currentPeriod, setCurrentPeriod ] = useState<string>(null);
     const [accountBalance, setAccountBalance ] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -53,6 +54,8 @@ export const AppProvider = ({children}) => {
                 setCurrentWeek,
                 currentSeason,
                 setCurrentSeason,
+                currentPeriod,
+                setCurrentPeriod,
                 accountBalance,
                 setAccountBalance,
                 isAdmin,

@@ -32,10 +32,7 @@ import {
 } from "@mui/material";
 import SportsFootballIcon from "@mui/icons-material/SportsFootball";
 import React, {useEffect, useState} from "react";
-import {zWebSocket} from '../hooks/useStompClient';
 import {WeeklyPicksPageDTO} from "../types/ZTypes";
-import ArrowDropUp from "@mui/icons-material/ArrowDropUp";
-import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -56,9 +53,6 @@ const WeeklyPicksPage = () => {
         getWeeklyPicksByPoolInstanceAndWeekRestCall,
         getTeamLogoUrl
     } = useRestApi();
-
-
-    const {useStompSubscription} = zWebSocket();
 
 
     const handleWeekChange = (event) => {
@@ -92,7 +86,7 @@ const WeeklyPicksPage = () => {
             .then(setWeeklyPicksRecords)
             .catch((err) => {
                 console.error('Error fetching weekly picks data :', err);
-                setError('Failed to load weekly pics data. Please try again.');
+                setError('Failed to load weekly pick data. Please try again.');
             })
             .finally(() => setLoading(false));
     }, [selectedEntry, selectedWeek]);

@@ -104,8 +104,16 @@ export const useRestApi = () => {
      const getEntriesRestCall = async () : Promise<EntryDTO[]> => {
         return await makeRestCall('/entries');
     };
-     const getCurrentWeekRestCall = async (): Promise<ApplicationSettingsDTO> => {
-        return await makeRestCall('/settings');
+     const getCurrentWeekRestCall = async (): Promise<number> => {
+        return await makeRestCall('/settings/currentWeek');
+    };
+
+    const getCurrentSeasonRestCall = async (): Promise<number> => {
+        return await makeRestCall('/settings/currentSeason');
+    };
+
+    const getCurrentPeriodRestCall = async (): Promise<string> => {
+        return await makeRestCall('/settings/currentPeriod');
     };
 
     const getMyAccountBalanceRestCall = async () => {
@@ -169,8 +177,9 @@ export const useRestApi = () => {
     const submitPickRestCall = async (pick: PickSubmission): Promise<string> => {
         return await makeRestCall(`/picks/submit`, 'POST',JSON.stringify(pick));
     };
-
-
+    const createCollegePlayoffGamesRestCall = async (): Promise<string> => {
+        return await makeRestCall(`/games/downloadCollegePlayoffGames`, 'PUT');
+    };
 
     return {
         getProfileRestCall,
@@ -178,6 +187,8 @@ export const useRestApi = () => {
         logoutRestCall,
         getEntriesRestCall,
         getCurrentWeekRestCall,
+        getCurrentSeasonRestCall,
+        getCurrentPeriodRestCall,
         getMyAccountBalanceRestCall,
         getMyAccountDetailRestCall,
         getTeamRankingsRestCall,
@@ -197,7 +208,8 @@ export const useRestApi = () => {
         rollWeekRestCall,
         getMyGamesPageRestCall,
         submitPickRestCall,
-        getTeamsAndWeeksBySportAndSeasonRestCall
+        getTeamsAndWeeksBySportAndSeasonRestCall,
+        createCollegePlayoffGamesRestCall
      };
 
 };
