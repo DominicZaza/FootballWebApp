@@ -43,10 +43,9 @@ export const NotificationProvider = ({ children }) => {
     return (
         <NotificationContext.Provider value={{ notify }}>
             {children}
-
             <Snackbar
                 open={open}
-                autoHideDuration={5000}
+                autoHideDuration={2000}
                 onClose={handleClose}
                 TransitionProps={{ onExited: handleExited }}
                 anchorOrigin={{ vertical: "top", horizontal: "center" }}

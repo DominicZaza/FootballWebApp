@@ -47,7 +47,7 @@ export const MatchupRenderer = ({
     return (
         <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
             {away_ext_id && (
-                <img
+                <img loading="lazy"
                     src={getTeamLogoUrl(away_ext_id,sport)}
                     alt={`${awayName} logo`}
                     style={{
@@ -63,7 +63,7 @@ export const MatchupRenderer = ({
             {" @ "}
 
             {home_ext_id && (
-                <img
+                <img loading="lazy"
                     src={getTeamLogoUrl(home_ext_id,sport)}
                     alt={`${homeName} logo`}
                     style={{

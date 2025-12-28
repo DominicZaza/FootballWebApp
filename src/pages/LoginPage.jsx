@@ -11,8 +11,9 @@ import {
 } from '@mui/material';
 import SportsFootballIcon from '@mui/icons-material/SportsFootball';
 import {signInWithEmailAndPassword} from 'firebase/auth';
-import {auth} from '../components/firebase.js';
+import {auth} from '../components/firebase.ts';
 import { useRestApi } from '../api/RestInvocations.ts';
+import {useNavigate} from "react-router-dom";
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -36,6 +37,8 @@ const LoginPage = () => {
 
             // Call REST API to record activity of login
             await loginRestCall(token);
+
+            useNavigate('/pool', { replace: true });
 
 
         } catch (err) {

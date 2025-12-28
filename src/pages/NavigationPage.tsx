@@ -1,10 +1,10 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
     AppBar,
     Box,
     FormControl,
     IconButton,
-    InputLabel, keyframes,
+    InputLabel,
     Menu,
     MenuItem,
     MenuItem as MenuItemComponent,
@@ -16,17 +16,20 @@ import {
     useMediaQuery,
     useTheme,
 } from '@mui/material';
+
+import type {SelectChangeEvent} from '@mui/material/Select';
+
 import SportsFootballIcon from '@mui/icons-material/SportsFootball';
-import AccountCircle from '@mui/icons-material/AccountCircle';
+import Avatar from '@mui/material/Avatar';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import {signOut} from 'firebase/auth';
-import {auth} from '../components/firebase.js';
+import {onAuthStateChanged, signOut} from 'firebase/auth';
+import {auth} from '../components/firebase.ts';
 import {useZAppContext} from '../components/AppContextProvider.tsx';
 import {useRestApi} from '../api/RestInvocations.ts';
 import GameScoresPage from './GameScoresPage.tsx';
-import AssignedGamesPage from './AssignedGamesPage.tsx';
+import MyPicksPage from './MyPicksPage.tsx';
 import LeaderboardPage from './LeaderboardPage.tsx';
 import WeeklyPicksPage from './WeeklyPicksPage.tsx';
 import {zWebSocket} from '../hooks/useStompClient';
@@ -34,10 +37,18 @@ import {zWebSocket} from '../hooks/useStompClient';
 
 import TeamRankingsAdminPage from './admin/TeamRankingsAdminPage.jsx';
 import ChangePasswordDialog from '../pages/ChangePasswordDialog';
-import AccountDetailDialog from './AccountDetailDialog.jsx';
-import {WeekRollEvent} from "../types/ZEvents";
+import AccountDetailDialog from './AccountDetailDialog.tsx';
+import type {WeekRollEvent} from "../types/ZEvents";
 
-const NavigationPage = ({colorMode, toggleColorMode}) => {
+import WeeklyPickemsPage from './pickem/WeeklyPickemsPage.tsx';
+import MyPickemsPage from './pickem/MyPickemsPage.tsx';
+import LoadingSpinner from "../components/LoadingSpinner.tsx";
+
+
+const NavigationPage = ({colorMode, toggleColorMode}: {
+    colorMode: 'light' | 'dark';
+    toggleColorMode: () => void;
+}) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const {
@@ -52,11 +63,10 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
         setAccountBalance,
         accountBalance,
         isAdmin, setIsAdmin,
-        setSeasons
+        setSeasons, setAuthUser
     } = useZAppContext();
 
-    const [anchorEl, setAnchorEl] = useState(null);
-    const [currentTab, setCurrentTab] = useState(0);
+    const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
     const [changePasswordOpen, setChangePasswordOpen] = useState(false);
     const [accountDetailOpen, setAccountDetailOpen] = useState(false);
     const [accountDetail, setAccountDetail] = useState(null);
@@ -73,7 +83,7 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
         getCurrentPeriodRestCall,
         getMyAccountBalanceRestCall,
         getMyAccountDetailRestCall,
-        getAllSeasonsRestCall
+        getAllSeasonsRestCall,
     } = useRestApi();
 
     const {useStompSubscription} = zWebSocket();
@@ -87,105 +97,42 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
             .finally(() => setAccountDetailLoading(false));
     };
 
+    const [authInitialized, setAuthInitialized] = useState(false);
 
-
-
-
-// Swipe state
-    const [touchStartX, setTouchStartX] = useState(0);
-
-    const handleTouchStart = (e) => setTouchStartX(e.touches[0].clientX);
-
-    const handleTouchEnd = (e) => {
-        const touchEndX = e.changedTouches[0].clientX;
-        const deltaX = touchEndX - touchStartX;
-
-        // Swipe right
-        if (deltaX > 50 && currentTab > 0) {
-            setCurrentTab(currentTab - 1);
-        }
-        // Swipe left
-        else if (deltaX < -50 && currentTab < (isAdmin ? 4 : 3)) {
-            setCurrentTab(currentTab + 1);
-        }
-    };
-
-
-    // Load entries whenever the user profile changes
     useEffect(() => {
-        if (!authUser) return;
+        return onAuthStateChanged(auth, user => {
+            setAuthUser(user);
+            setAuthInitialized(true);
+        });
+
+    }, []);
+
+
+//load all data once authUser is available
+    useEffect(() => {
+        if (!authInitialized || !authUser) return;
+
         setLoading(true);
-        getEntriesRestCall()
-            .then(setEntries)
-            .catch(err => console.error("Fetch entries error:", err))
+
+        Promise.all([
+            getEntriesRestCall().then(setEntries),
+            getCurrentWeekRestCall().then(setCurrentWeek),
+            getCurrentSeasonRestCall().then(setCurrentSeason),
+            getCurrentPeriodRestCall().then(setCurrentPeriod),
+            getMyAccountBalanceRestCall().then(setAccountBalance),
+            getAllSeasonsRestCall().then(setSeasons),
+            getProfileRestCall().then(p => setIsAdmin(p.admin)),
+        ])
+            .catch( (e) => {alert(e);})
             .finally(() => setLoading(false));
     }, [authUser]);
+
 
     // After entries load, pick the first one
     useEffect(() => {
         if (entries.length > 0 && !selectedEntry) setSelectedEntry(entries[0]);
     }, [entries, selectedEntry]);
 
-    // Set admin status whenever the user profile changes
-    useEffect(() => {
-        if (!authUser) return;
-        getProfileRestCall()
-            .then(userProfile => setIsAdmin(userProfile.admin))
-            .catch(err => console.error("Fetch profile error:", err))
-            .finally(() => setLoading(false));
-
-    }, [authUser]);
-
-
-    // Load Current week
-    useEffect(() => {
-        if (!authUser) return;
-        setLoading(true);
-        getCurrentWeekRestCall()
-            .then(setCurrentWeek)
-            .catch(err => console.error("Fetch current week  error:", err))
-            .finally(() => setLoading(false));
-    }, [authUser]);
-
-    // Load Current season
-    useEffect(() => {
-        if (!authUser) return;
-        setLoading(true);
-        getCurrentSeasonRestCall()
-            .then(setCurrentSeason)
-            .catch(err => console.error("Fetch current season  error:", err))
-            .finally(() => setLoading(false));
-    }, [authUser]);
-
-    // Load Current period
-    useEffect(() => {
-        if (!authUser) return;
-        setLoading(true);
-        getCurrentPeriodRestCall()
-            .then(setCurrentPeriod)
-            .catch(err => console.error("Fetch current period  error:", err))
-            .finally(() => setLoading(false));
-    }, [authUser]);
-
-    //dependency on authUser
-    useEffect(() => {
-        if (!authUser) return;
-        getAllSeasonsRestCall()
-            .then((data) => {
-                setSeasons(data);
-            })
-            .catch((err) => console.error("Error fetching all seasons", err));
-    }, [authUser]);
-
-    // Load account balance
-    useEffect(() => {
-        if (!authUser) return;
-        setLoading(true);
-        getMyAccountBalanceRestCall()
-            .then(setAccountBalance)
-            .catch(err => console.error("Fetch account balance error:", err))
-            .finally(() => setLoading(false));
-    }, [authUser]);
 
     // WebSocket message handler
     const handleWeekHasBeenRolledUpdate = useCallback((event: WeekRollEvent) => {
@@ -193,7 +140,7 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
         setCurrentWeek(event.week);
     }, []);
 
-    const handleMenuOpen = (event) => {
+    const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget);
     };
 
@@ -216,54 +163,100 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
         handleMenuClose();
     };
 
-    const handleEntryChange = (event) => {
-        const entry = entries.find((e) => e.id === event.target.value);
-        setSelectedEntry(entry);
+
+    const handleEntryChange = (event: SelectChangeEvent<string>) => {
+        const entryId = event.target.value;
+        const entry = entries.find(e => e.id == entryId);
+        setSelectedEntry(entry ?? null);
     };
 
-    const handleTabChange = (event, newValue) => {
-        setCurrentTab(newValue);
-    };
-
-    const spin = keyframes`
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    `;
 
     //websocket subscriptions
-    useStompSubscription( '/topic/zevents/WeekRollUpdate', handleWeekHasBeenRolledUpdate);
+    useStompSubscription('/topic/zevents/WeekRollUpdate', handleWeekHasBeenRolledUpdate);
+
+    const poolTypeId = selectedEntry?.poolTypeId ;
+
+    // Use tab IDs instead of numeric indices ... MUI explicitly supports false as a valid “no selection” value.
+    const [currentTabId, setCurrentTabId] = useState<string | false>(false);
+
+
+    const tabsForPoolType = useMemo(() => {
+        if (!selectedEntry) return [];
+        // Define per-pool tabs here. GameScoresPage is reused.
+        const commonAdminTab = {
+            id: 'adminTeamRankings',
+            label: 'Team Rankings (Admin Only)',
+            element: <TeamRankingsAdminPage/>,
+            isVisible: () => isAdmin,
+        };
+
+        const sweepstakesTabs = [
+            {id: 'allPicks', label: 'All Picks', element: <WeeklyPicksPage/>},
+            {id: 'leaderboard', label: 'Leaderboard', element: <LeaderboardPage/>},
+            {id: 'myPicks', label: 'My Picks', element: <MyPicksPage/>},
+            {id: 'gameScores', label: 'Game Scores', element: <GameScoresPage/>},
+            commonAdminTab,
+        ];
+
+        const pickemTabs = [
+            {id: 'myPickem', label: 'My Pickem', element: <MyPickemsPage/>},
+            {id: 'pickemWeekly', label: 'Weekly Pickem', element: <WeeklyPickemsPage/>},
+            {id: 'pickemLeaderboard', label: 'Leaderboard', element: <GameScoresPage/>},
+            {id: 'gameScores', label: 'Game Scores', element: <GameScoresPage/>},
+            commonAdminTab,
+        ];
+
+        const byPoolTypeId: Record<number, any[]> = {
+            1: sweepstakesTabs,
+            2: pickemTabs,
+        };
+        const rawTabs = byPoolTypeId[poolTypeId ?? 1] ?? sweepstakesTabs;
+
+        return rawTabs.filter(t => (t.isVisible ? t.isVisible() : true));
+    }, [poolTypeId, isAdmin]);
+
+    // Reset tab whenever pooltype changes (no need to preserve selection)
+    useEffect(() => {
+        setCurrentTabId(tabsForPoolType[0]?.id ?? '__none__');
+    }, [poolTypeId, tabsForPoolType]);
+
+    const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
+        setCurrentTabId(newValue);
+    };
+
+    //This is a known MUI Tabs timing issue, and your diagnosis is correct:
+    // for one render, the currentTabId still contains the old pool’s tab ("allPicks"), while the new pool’s tabs have already changed. MUI validates immediately and throws.
+    // The fix is to never allow Tabs to render with an invalid value.
+    // The fix is to never allow Tabs to render with an invalid value.
+    const safeTabValue = useMemo(() => {
+        if (!currentTabId) return false;
+
+        return tabsForPoolType.some(t => t.id === currentTabId)
+            ? currentTabId
+            : false;
+    }, [currentTabId, tabsForPoolType]);
+
+
+    const activeTab = tabsForPoolType.find(t => t.id === currentTabId);
+
+    const userInitial = useMemo(() => {
+        if (!authUser?.email) return '?';
+        return authUser.email.charAt(0).toUpperCase();
+    }, [authUser]);
 
 
     if (loading) {
         return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh',
-                    backgroundColor: colorMode === 'dark' ? '#121212' : '#ffffff',
-                }}
-            >
-                <SportsFootballIcon
-                    sx={{
-                        fontSize: 80,
-                        color: '#1976d2',
-                        animation: `${spin} 1s linear infinite`,
-                    }}
-                />
-            </Box>
+            <LoadingSpinner/>
         );
     }
 
 
     return (
-        <Box sx={{display: 'flex', flexDirection: 'column'}}>
-            <AppBar position="sticky`">
+        <Box
+            sx={{display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden'}}
+        >
+            <AppBar position="sticky">
                 <Toolbar sx={{flexWrap: isMobile ? 'wrap' : 'nowrap'}}>
                     {/* Logo */}
                     <SportsFootballIcon sx={{mr: 2, fontSize: 40}}/>
@@ -303,7 +296,7 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
                         ml: 2,
                         px: 2,
                         py: 0.5,
-                        border: `2px solid ${accountBalance < 0 ? 'red' : 'green'}`,
+                        border: `2px solid ${(accountBalance ?? 0) < 0 ? 'red' : 'green'}`,
                         borderRadius: 1,
                         cursor: 'pointer',
                         '&:hover': {
@@ -319,6 +312,7 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
                         </Typography>
                     </Box>
 
+
                     {/* User Menu */}
                     <Box sx={{display: 'flex', alignItems: 'center', ml: 2}}>
                         <Typography variant="body1" sx={{mr: 1, display: {xs: 'none', sm: 'block'}}}>
@@ -332,8 +326,16 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
                             onClick={handleMenuOpen}
                             color="inherit"
                         >
-                            <AccountCircle/>
-
+                            <Avatar
+                                sx={{
+                                    width: 32,
+                                    height: 32,
+                                    bgcolor: 'primary.main',
+                                    fontSize: 16,
+                                }}
+                            >
+                                {userInitial}
+                            </Avatar>
                         </IconButton>
                         <Menu
                             id="menu-appbar"
@@ -367,29 +369,30 @@ const NavigationPage = ({colorMode, toggleColorMode}) => {
                     borderColor: 'divider',
                 }}
             >
+
                 <Tabs
-                    value={currentTab}
+                    value={safeTabValue}
                     onChange={handleTabChange}
                     variant="standard"
-                    sx={{ display: 'inline-flex', minWidth: 'max-content' }}
+                    sx={{display: 'inline-flex', minWidth: 'max-content'}}
                 >
-                    <Tab label="All Picks" />
-                    <Tab label="Leaderboard" />
-                    <Tab label="My Picks" />
-                    <Tab label="Game Scores" />
-                    {isAdmin && <Tab label="Team Rankings (Admin Only)" />}
+                    {tabsForPoolType.map(t => (
+                        <Tab key={t.id} value={t.id} label={t.label}/>
+                    ))}
                 </Tabs>
             </Box>
 
-            {/* Main Content */}
             <Box
-                sx={{ flexGrow: 1, overflow: 'auto', p: isMobile ? 1 : 3 }}
+                sx={{
+                    flexGrow: 1,
+                    minHeight: 0,          // 🔴 critical for flex layouts
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    scrollbarGutter: 'stable',
+                    p: isMobile ? 1 : 3,
+                }}
             >
-                {currentTab === 0 && <WeeklyPicksPage />}
-                {currentTab === 1 && <LeaderboardPage />}
-                {currentTab === 2 && <AssignedGamesPage />}
-                {currentTab === 3 && (<GameScoresPage />)}
-                {currentTab === 4 && isAdmin && <TeamRankingsAdminPage />}
+                {activeTab?.element}
             </Box>
 
             {/* Change Password Dialog */}

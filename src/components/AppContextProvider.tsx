@@ -1,19 +1,20 @@
-import React, {createContext, useContext, useEffect, useState} from 'react';
-import {onAuthStateChanged} from 'firebase/auth';
-import {auth} from './firebase';
-import {SeasonDTO, EntryDTO} from "../types/ZTypes";
+import { createContext, useContext, useEffect, useState} from 'react';
+import type {SeasonDTO, EntryDTO} from "../types/ZTypes";
+import type {ZAppContextType} from "../types/ZAppContextType";
 
-const AppContext = createContext();
+const AppContext = createContext<ZAppContextType | undefined>(undefined);
 
-export const AppProvider = ({children}) => {
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+
 
     const [entries, setEntries] =  useState<EntryDTO[]>([]);
-    const [selectedEntry, setSelectedEntry] = useState<EntryDTO>(null);
+    const [selectedEntry, setSelectedEntry] = useState<EntryDTO | null>(null);
     const [authUser, setAuthUser] = useState(null);
     const [seasons, setSeasons] = useState<SeasonDTO[]>([]);
     const [currentWeek, setCurrentWeek ] = useState<number>(0);
     const [currentSeason, setCurrentSeason ] = useState<number>(0);
-    const [currentPeriod, setCurrentPeriod ] = useState<string>(null);
+    const [currentPeriod, setCurrentPeriod ] = useState<string | null>(null);
     const [accountBalance, setAccountBalance ] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -28,19 +29,6 @@ export const AppProvider = ({children}) => {
         return () => window.removeEventListener('resize', checkIfMobile);
     }, []);
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                setAuthUser(currentUser);
-            } else {
-                setAuthUser(null);
-                setIsAdmin(false);
-            }
-        });
-
-        return () => unsubscribe();
-    }, []);
-
     return (
         <AppContext.Provider
             value={{
@@ -49,7 +37,7 @@ export const AppProvider = ({children}) => {
                 selectedEntry,
                 setSelectedEntry,
                 authUser,
-                setUserProfile: setAuthUser,
+                setAuthUser,
                 currentWeek,
                 setCurrentWeek,
                 currentSeason,
@@ -62,7 +50,7 @@ export const AppProvider = ({children}) => {
                 setIsAdmin,
                 isMobile,
                 seasons,
-                setSeasons
+                setSeasons,
             }}
         >
             {children}
@@ -70,10 +58,13 @@ export const AppProvider = ({children}) => {
     );
 };
 
-export const useZAppContext = () => {
+
+export const useZAppContext = (): ZAppContextType => {
     const context = useContext(AppContext);
     if (!context) {
-        throw new Error('useAppContext must be used within an AppProvider');
+        throw new Error('useZAppContext must be used within an AppProvider');
     }
     return context;
 };
+
+

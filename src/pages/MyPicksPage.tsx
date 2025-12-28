@@ -25,7 +25,6 @@ const toggleOptions = [
 import {
     Alert,
     Box,
-    keyframes,
     Paper,
     Table,
     TableBody,
@@ -34,23 +33,22 @@ import {
     TableHead,
     TableRow
 } from "@mui/material";
-import SportsFootballIcon from "@mui/icons-material/SportsFootball";
 import React from "react";
 import { useEffect, useState} from "react";
-import {zWebSocket} from '../hooks/useStompClient';
 
-import {MyGamesPageDTO, PickControl} from "../types/ZTypes";
+import type {MyGamesPageDTO, PickControl} from "../types/ZTypes";
 import {formatDate} from "../utils/DateUtils";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
+import LoadingSpinner from "../components/LoadingSpinner.tsx";
 
-const AssignedGamesPage = () => {
+const MyPicksPage = () => {
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState(null);
     const [myGames, setMyGames] = useState<MyGamesPageDTO[]>([]);
     const [pickControl, setPickControl] = useState<PickControl>(null);
-    const {isAdmin, isMobile,  selectedEntry, currentWeek, currentSeason} = useZAppContext();
+    const { isMobile,  selectedEntry, currentWeek} = useZAppContext();
     const { notify } = useNotify();
 
     const handlePickSubmitted = () => {
@@ -63,24 +61,8 @@ const AssignedGamesPage = () => {
 
     const {
         getMyGamesPageRestCall,
-        getTeamLogoUrl,
     } = useRestApi();
 
-
-    const { useStompSubscription} = zWebSocket();
-
-
-    //websocket subscriptions
-    //TODO useStompSubscription( '/topic/zevents/GameScoreUpdate', handleGameScoreSavedEvent);
-
-    const spin = keyframes`
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    `;
 
     //dependency on selectedEntry
     useEffect(() => {
@@ -102,24 +84,10 @@ const AssignedGamesPage = () => {
         }
     };
 
+
     if (loading) {
         return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh',
-                }}
-            >
-                <SportsFootballIcon
-                    sx={{
-                        fontSize: 80,
-                        color: '#1976d2',
-                        animation: `${spin} 1s linear infinite`,
-                    }}
-                />
-            </Box>
+            <LoadingSpinner/>
         );
     }
 
@@ -191,7 +159,7 @@ const AssignedGamesPage = () => {
                                             home_ext_id={myGame.home_ext_id}
                                             pick={myGame.pick}
                                             pickStatus={myGame.pickStatus}
-                                            sport={myGame.s}
+                                            sport={myGame.sport}
                                         />
                                     </TableCell>
                                     <TableCell> <PickStatusRenderer pickStatus={myGame.pickStatus}/></TableCell>
@@ -225,4 +193,4 @@ const AssignedGamesPage = () => {
     );
 }
 
-export default AssignedGamesPage;
+export default MyPicksPage;

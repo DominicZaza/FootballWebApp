@@ -24,3 +24,16 @@ export const formatDate = (dateString: string, isMobile: boolean) => {
 
     return date.toLocaleString('en-US', options);
 };
+export const formatDateSmall = (dateString: string, isMobile: boolean) => {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+
+    // Mobile users get a shorter, more compact format
+    const options =  {
+            month: 'short',
+            day: 'numeric',
+        };
+
+    return date.toLocaleString('en-US', options);
+};

@@ -1,11 +1,13 @@
 import {useZAppContext} from '../components/AppContextProvider';
 import {useRestApi} from '../api/RestInvocations.js';
 import {formatDate} from '../utils/DateUtils'
-import { ToggleOptionsGroup, ToggleOption } from "../utils/ToggleOptionsGroup";
+import { ToggleOptionsGroup } from "../utils/ToggleOptionsGroup";
+import type {  ToggleOption } from "../utils/ToggleOptionsGroup";
 import {MatchupRenderer} from '../utils/MatchupRenderer'
 import {PickStatusRenderer} from '../utils/PickStatusRenderer'
 import {WagerRenderer} from '../utils/WagerRenderer'
 import {GameCategoryRenderer} from '../utils/GameCategoryRenderer'
+import LoadingSpinner from "../components/LoadingSpinner.tsx";
 
 const toggleOptions: ToggleOption[] = [
     { key: "entryRecord", label: "Win Record", icon: EmojiEventsIcon },
@@ -19,7 +21,6 @@ import {
     Box,
     FormControl,
     InputLabel,
-    keyframes,
     MenuItem,
     Paper,
     Select,
@@ -28,30 +29,29 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TableRow, ToggleButtonGroup, Typography
+    TableRow
 } from "@mui/material";
-import SportsFootballIcon from "@mui/icons-material/SportsFootball";
-import React, {useEffect, useState} from "react";
-import {WeeklyPicksPageDTO} from "../types/ZTypes";
+import {useEffect, useState} from "react";
+import type {WeeklyPicksDTO} from "../types/ZTypes";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import StarIcon from "@mui/icons-material/Star";
 
 const WeeklyPicksPage = () => {
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string|null>(null);
+    const { isMobile,  selectedEntry,  currentWeek} = useZAppContext();
+    const [selectedWeek, setSelectedWeek] = useState<number|null>(null);
 
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState(null);
-    const {isAdmin, isMobile, userProfile, selectedEntry, currentSeason, currentWeek} = useZAppContext();
-    const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1);
-    const [weeklyPicksRecords, setWeeklyPicksRecords] = useState<WeeklyPicksPageDTO[]>([]);
+
+    const [weeklyPicksRecords, setWeeklyPicksRecords] = useState<WeeklyPicksDTO[]>([]);
 
     //Toggle preferences
     const [visibleToggles, setVisibleToggles] = useState<string[]>([]);
 
     const {
         getWeeklyPicksByPoolInstanceAndWeekRestCall,
-        getTeamLogoUrl
     } = useRestApi();
 
 
@@ -61,29 +61,22 @@ const WeeklyPicksPage = () => {
     };
 
 
-    const spin = keyframes`
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    `;
 
-    // fetch game ranks
     useEffect(() => {
-        if (currentWeek != 0)
-            setSelectedWeek(currentWeek);
-    }, [currentWeek]);
+        if (currentWeek && selectedEntry) {
+            const week = Math.min(currentWeek, selectedEntry.maxWeeks);
+            setSelectedWeek(week);
+        }
+    }, [currentWeek, selectedEntry]);
 
 
-    //dependency on selectedEntry and currentWeek
+    //dependency on selectedEntry and selectedWeek
     useEffect(() => {
-        if (!selectedEntry || !selectedEntry.id || currentWeek == 0) return;
+        if (!selectedEntry || !selectedEntry.id || selectedWeek == null) return;
         setLoading(true);
         setError(null);
         getWeeklyPicksByPoolInstanceAndWeekRestCall(selectedEntry.pool_instance_id, selectedWeek)
-            .then(setWeeklyPicksRecords)
+            .then(data =>{ setWeeklyPicksRecords(data.weeklyPicks)})
             .catch((err) => {
                 console.error('Error fetching weekly picks data :', err);
                 setError('Failed to load weekly pick data. Please try again.');
@@ -93,29 +86,14 @@ const WeeklyPicksPage = () => {
 
 
     if (loading) {
-        return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh',
-                }}
-            >
-                <SportsFootballIcon
-                    sx={{
-                        fontSize: 80,
-                        color: '#1976d2',
-                        animation: `${spin} 1s linear infinite`,
-                    }}
-                />
-            </Box>
-        );
+        return <LoadingSpinner />;
     }
+
 
     // Generate week options
     const weekOptions = [];
-    for (let week = 1; week <= currentWeek; week++) {
+    const maxWeeks= selectedEntry?selectedEntry.maxWeeks:0;
+    for (let week = 1; week <= maxWeeks; week++) {
         weekOptions.push(
             <MenuItem key={week} value={week}>
                 Week {week}
@@ -180,7 +158,7 @@ const WeeklyPicksPage = () => {
                                 <TableCell>Wager</TableCell>
                                 <TableCell>Balance</TableCell>
                                 <TableCell>Matchup</TableCell>
-                                {visibleToggles.includes("streak") && <TableCell>W-L-T-P</TableCell>}
+                                {visibleToggles.includes("entryRecord") && <TableCell>W-L-T-P</TableCell>}
                                 {visibleToggles.includes("streak") && <TableCell>Streak</TableCell>}
                                 {visibleToggles.includes("gameDate") && <TableCell>Game Date</TableCell>}
                                 {visibleToggles.includes("gameCategory") && <TableCell>Game Category</TableCell>}
@@ -218,6 +196,7 @@ const WeeklyPicksPage = () => {
                                             home_ext_id={weeklyPicksPageDTO.home_ext_id}
                                             pick={weeklyPicksPageDTO.pick}
                                             pickStatus={weeklyPicksPageDTO.pickStatus}
+                                            sport={weeklyPicksPageDTO.sport}
                                         />
                                     </TableCell>
 

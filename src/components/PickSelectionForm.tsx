@@ -134,8 +134,6 @@ const PickSelectionForm = ({
                         min: 1,
                         max: pickControl.total
                     }}
-                    error={validationError.severity === "error"}
-                    helperText={validationError.severity === "error" ? validationError.message : ""}
                     sx={{
                         mb: 3,
                         width: isMobile ? "100%" : "200px",
@@ -153,7 +151,7 @@ const PickSelectionForm = ({
                     Submit Pick
                 </Button>
 
-                {validationError.message && validationError.severity !== "error" && (
+                {validationError.message && validationError.severity !== "success" && (
                     <Alert severity={validationError.severity} sx={{ mt: 2 }}>
                         {validationError.message}
                     </Alert>

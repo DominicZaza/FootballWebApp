@@ -3,14 +3,13 @@ import {BrowserRouter as Router, Routes, Route, Navigate} from 'react-router-dom
 import {ThemeProvider, createTheme} from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import {onAuthStateChanged} from 'firebase/auth';
-import {auth} from './firebase';
+import {auth} from './firebase.ts';
 import {AppProvider} from './AppContextProvider.tsx';
 import LoginPage from '../pages/LoginPage';
 import NavigationPage from '../pages/NavigationPage.tsx';
 import LandscapeWarning from '../pages/LandscapeWarningDialog';
-import SportsFootballIcon from '@mui/icons-material/SportsFootball';
-import {Box, keyframes} from '@mui/material';
 import {NotificationProvider} from "./NotificationProvider";
+import LoadingSpinner from "./LoadingSpinner.tsx";
 
 function App() {
     const [user, setUser] = useState(null);
@@ -42,34 +41,13 @@ function App() {
         setColorMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
     };
 
-    const spin = keyframes`
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    `;
 
     if (loading) {
         return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh',
-                    backgroundColor: colorMode === 'dark' ? '#121212' : '#ffffff',
-                }}
-            >
-                <SportsFootballIcon
-                    sx={{
-                        fontSize: 80,
-                        color: '#1976d2',
-                        animation: `${spin} 1s linear infinite`,
-                    }}
-                />
-            </Box>
+            <LoadingSpinner
+                backgroundColor={colorMode === 'dark' ? '#121212' : '#ffffff'}
+                fullPage={true}
+            />
         );
     }
 

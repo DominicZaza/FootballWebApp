@@ -22,12 +22,13 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ArrowDropUp from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDown from '@mui/icons-material/ArrowDropDown';
 import {getTeamLogoUrl, useRestApi} from '../../api/RestInvocations.ts';
+import type {TeamRankingDTO} from "../../types/ZTypes.ts";
 
 export default function TeamRankingsAdminPage() {
     const { currentWeek, currentSeason   } = useZAppContext();
 
 
-    const [teamRanks, setTeamRanks] = useState([]);
+    const [teamRanks, setTeamRanks] = useState<TeamRankingDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
@@ -285,7 +286,7 @@ export default function TeamRankingsAdminPage() {
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Avatar 
-                                                src={getTeamLogoUrl(rank.team.ext_id,sport)}
+                                                src={getTeamLogoUrl(rank.team.ext_id,rank.team.sport)}
                                                 alt={rank.team.name}
                                                 sx={{ width: 32, height: 32 }}
                                             >

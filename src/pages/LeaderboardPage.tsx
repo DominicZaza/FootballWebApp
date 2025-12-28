@@ -1,15 +1,17 @@
 import {useZAppContext} from '../components/AppContextProvider';
-import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.js';
+import {useRestApi} from '../api/RestInvocations.js';
 import {formatDate} from '../utils/DateUtils'
-import { ToggleOptionsGroup, ToggleOption } from "../utils/ToggleOptionsGroup";
+import {ToggleOptionsGroup} from "../utils/ToggleOptionsGroup";
+import type {ToggleOption} from "../utils/ToggleOptionsGroup";
+import type {SelectChangeEvent} from '@mui/material/Select';
 
 const toggleOptions: ToggleOption[] = [
-    { key: "entryRanking", label: "Entry Ranking", icon: StarIcon },
-    { key: "entryRecord", label: "Win Record", icon: EmojiEventsIcon },
-    { key: "streak", label: "Win Streak", icon: RepeatIcon },
-    { key: "nextGame", label: "Next Game", icon: StarIcon },
-    { key: "gameDate", label: "Game Date", icon: ScheduleIcon },
-    { key: "gameCategory", label: "Game Category", icon: StarIcon },
+    {key: "entryRanking", label: "Entry Ranking", icon: StarIcon},
+    {key: "entryRecord", label: "Win Record", icon: EmojiEventsIcon},
+    {key: "streak", label: "Win Streak", icon: RepeatIcon},
+    {key: "nextGame", label: "Next Game", icon: StarIcon},
+    {key: "gameDate", label: "Game Date", icon: ScheduleIcon},
+    {key: "gameCategory", label: "Game Category", icon: StarIcon},
 ];
 
 import {
@@ -17,7 +19,6 @@ import {
     Box,
     FormControl,
     InputLabel,
-    keyframes,
     MenuItem,
     Paper,
     Select,
@@ -26,28 +27,28 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TableRow, ToggleButtonGroup, Typography
+    TableRow, Typography
 } from "@mui/material";
-import SportsFootballIcon from "@mui/icons-material/SportsFootball";
 import React, {useCallback, useEffect, useState} from "react";
 import {zWebSocket} from '../hooks/useStompClient';
-import {LeaderBoardDTO} from "../types/ZTypes";
+import type {LeaderBoardDTO} from "../types/ZTypes";
 import ArrowDropUp from "@mui/icons-material/ArrowDropUp";
 import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import StarIcon from "@mui/icons-material/Star";
-import {LeaderboardUpdateEvent} from "../types/ZEvents";
+import type {LeaderboardUpdateEvent} from "../types/ZEvents";
 import {GameCategoryRenderer} from '../utils/GameCategoryRenderer'
+import LoadingSpinner from "../components/LoadingSpinner.tsx";
 
 
 const LeaderboardPage = () => {
 
     const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState(null);
-    const {isAdmin, isMobile, userProfile, selectedEntry, currentSeason, currentWeek} = useZAppContext();
-    const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
+    const [error, setError] = useState<string | null>(null);
+    const {isMobile, selectedEntry, currentSeason, currentWeek} = useZAppContext();
+    const [selectedWeek, setSelectedWeek] = useState<number |null>(null);
     const [leaderRecords, setLeaderRecords] = useState<LeaderBoardDTO[]>([]);
     //Toggle preferences
     const [visibleToggles, setVisibleToggles] = useState<string[]>([]);
@@ -61,7 +62,7 @@ const LeaderboardPage = () => {
     const {useStompSubscription} = zWebSocket();
 
 
-    const handleWeekChange = (event) => {
+    const handleWeekChange = (event: SelectChangeEvent<number>) => {
         const week = event.target.value;
         setSelectedWeek(week);
     };
@@ -112,11 +113,11 @@ const LeaderboardPage = () => {
             );
     };
 
-    const NextGameCellRenderer = ({awayName, awayLogoUrl, homeName, homeLogoUrl}) => {
+    const NextGameCellRenderer = ({awayName, awayLogoUrl, homeName, homeLogoUrl}: { awayName: string; awayLogoUrl: string; homeName: string; homeLogoUrl: string; }) => {
         return (
             <Box sx={{display: "inline-flex", alignItems: "center", gap: 1}}>
                 {awayLogoUrl && (
-                    <img
+                    <img loading="lazy"
                         src={awayLogoUrl}
                         alt={`${awayName} logo`}
                         style={{width: 24, height: 24, objectFit: 'contain'}}
@@ -126,7 +127,7 @@ const LeaderboardPage = () => {
                 {' '}
                 @
                 {homeLogoUrl && (
-                    <img
+                    <img loading="lazy"
                         src={homeLogoUrl}
                         alt={`${homeName} logo`}
                         style={{width: 24, height: 24, objectFit: 'contain'}}
@@ -137,25 +138,16 @@ const LeaderboardPage = () => {
         );
     };
 
-    const spin = keyframes`
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    `;
-
-    // fetch game ranks
     useEffect(() => {
-        if (currentWeek != 0)
-            setSelectedWeek(currentWeek);
-    }, [currentWeek]);
-
+        if (currentWeek && selectedEntry) {
+            const week = Math.min(currentWeek, selectedEntry.maxWeeks);
+            setSelectedWeek(week);
+        }
+    }, [currentWeek, selectedEntry]);
 
     //dependency on selectedEntry and currentWeek
     useEffect(() => {
-        if (!selectedEntry || !selectedEntry.id || currentWeek == 0) return;
+        if (!selectedEntry || !selectedEntry.id || selectedWeek == null) return;
         setLoading(true);
         setError(null);
         getLeaderboardByPoolInstanceAndWeek(selectedEntry.pool_instance_id, selectedWeek)
@@ -170,28 +162,14 @@ const LeaderboardPage = () => {
 
     if (loading) {
         return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh',
-                }}
-            >
-                <SportsFootballIcon
-                    sx={{
-                        fontSize: 80,
-                        color: '#1976d2',
-                        animation: `${spin} 1s linear infinite`,
-                    }}
-                />
-            </Box>
+            <LoadingSpinner/>
         );
     }
 
     // Generate week options
     const weekOptions = [];
-    for (let week = 1; week <= currentWeek; week++) {
+    const maxWeeks= selectedEntry?selectedEntry.maxWeeks:0;
+    for (let week = 1; week <= maxWeeks; week++) {
         weekOptions.push(
             <MenuItem key={week} value={week}>
                 Week {week}
@@ -234,7 +212,7 @@ const LeaderboardPage = () => {
                     </Alert>
                 )}
 
-                <TableContainer component={Paper} >
+                <TableContainer component={Paper}>
                     <Table
                         stickyHeader
                         size="small"
@@ -256,8 +234,10 @@ const LeaderboardPage = () => {
                                 {visibleToggles.includes("entryRanking") && <TableCell>Ranking</TableCell>}
                                 {visibleToggles.includes("entryRecord") && <TableCell>W-L-T-P</TableCell>}
                                 {visibleToggles.includes("streak") && <TableCell>Streak</TableCell>}
-                                {visibleToggles.includes("nextGame") && <TableCell align={"center"}>Next Game</TableCell>}
-                                {visibleToggles.includes("gameDate") && <TableCell align={"center"}>Game Date</TableCell>}
+                                {visibleToggles.includes("nextGame") &&
+                                    <TableCell align={"center"}>Next Game</TableCell>}
+                                {visibleToggles.includes("gameDate") &&
+                                    <TableCell align={"center"}>Game Date</TableCell>}
                                 {visibleToggles.includes("gameCategory") && <TableCell>Game Category</TableCell>}
 
                             </TableRow>
@@ -315,12 +295,12 @@ const LeaderboardPage = () => {
                                     )}
                                     {visibleToggles.includes("nextGame") && (
                                         <TableCell>
-                                            {leaderRecord.current_balance !== 0 ? (
+                                            {leaderRecord.current_balance !== 0 && leaderRecord.commence_time != null ? (
                                                 <NextGameCellRenderer
                                                     awayName={leaderRecord.away_team}
-                                                    awayLogoUrl={getTeamLogoUrl(leaderRecord.away_ext_id,leaderRecord.sport)}
+                                                    awayLogoUrl={getTeamLogoUrl(leaderRecord.away_ext_id, leaderRecord.sport)}
                                                     homeName={leaderRecord.home_team}
-                                                    homeLogoUrl={getTeamLogoUrl(leaderRecord.home_ext_id,leaderRecord.sport)}
+                                                    homeLogoUrl={getTeamLogoUrl(leaderRecord.home_ext_id, leaderRecord.sport)}
                                                 />
                                             ) : (
                                                 ""   // empty cell
@@ -329,17 +309,21 @@ const LeaderboardPage = () => {
                                     )}
                                     {visibleToggles.includes("gameDate") && (
                                         <TableCell>
-                                            {leaderRecord.current_balance !== 0
+                                            {leaderRecord.current_balance !== 0 && leaderRecord.commence_time != null
                                                 ? formatDate(leaderRecord.commence_time, isMobile)
                                                 : ""}
                                         </TableCell>
                                     )}
-                                    {visibleToggles.includes("gameCategory") && leaderRecord.current_balance != 0 && (
-                                        <TableCell> <GameCategoryRenderer rankType={leaderRecord.rankType}
+                                    {visibleToggles.includes("gameCategory") && (
+                                        <TableCell>
+                                            {leaderRecord.current_balance != 0 && leaderRecord.commence_time != null ?(
+                                            <GameCategoryRenderer rankType={leaderRecord.rankType}
                                                                           homeRank={leaderRecord.home_rank}
-                                                                          awayRank={leaderRecord.away_rank}/>
+                                                                          awayRank={leaderRecord.away_rank}/>): (
+                                                                              "" //empty cell
+                                            )}
                                         </TableCell>
-                                    )}
+                                                )}
 
                                 </TableRow>
                             ))}

@@ -1,6 +1,6 @@
 import {useZAppContext} from '../components/AppContextProvider.tsx';
-import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.js';
-import {ToggleButton, ToggleButtonGroup, Tooltip, Typography} from "@mui/material";
+import {getTeamLogoUrl,   useRestApi} from '../api/RestInvocations.js';
+import {ToggleButtonGroup, Tooltip, Typography} from "@mui/material";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -37,9 +37,10 @@ import {
 } from "@mui/material";
 import SportsFootballIcon from "@mui/icons-material/SportsFootball";
 import React, {useCallback, useEffect, useState} from "react";
-import {GameScoreSavedEvent} from "../types/ZEvents";
-import {GameScorePageDTO} from "../types/ZTypes";
+import type {GameScoreSavedEvent} from "../types/ZEvents";
+import type {GameScorePageDTO} from "../types/ZTypes";
 import {zWebSocket} from '../hooks/useStompClient';
+import LoadingSpinner from "../components/LoadingSpinner.tsx";
 
 
 const glowPulse = keyframes`
@@ -77,7 +78,7 @@ const TeamCellRenderer = ({
                               homeTeamSpread,
                               sport
                           }) => {
-    const logoUrl = getTeamLogoUrl(ext_id,sport)
+    const logoUrl = getTeamLogoUrl(ext_id, sport)
 
     const dotColor =
         status === "Win" ? "rgba(76, 175, 80, 0.35)" :
@@ -89,7 +90,7 @@ const TeamCellRenderer = ({
 
     return (
         <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-            {ext_id && <img src={logoUrl} style={{width: 24, height: 24}}/>}
+            {ext_id && <img loading="lazy" src={logoUrl} style={{width: 24, height: 24}}/>}
 
             {name && (
                 <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
@@ -126,8 +127,8 @@ interface OpponentCellRendererProps {
     displayAtSign?: string
 }
 
-const OpponentCellRenderer = ({name, status, ext_id,  streak, record, onClickTeam, displayAtSign, sport}) => {
-    const logoUrl = getTeamLogoUrl(ext_id,sport);
+const OpponentCellRenderer = ({name, status, ext_id, streak, record, onClickTeam, displayAtSign, sport}) => {
+    const logoUrl = getTeamLogoUrl(ext_id, sport);
 
     const dotColor =
         status === "Win" ? "rgba(76, 175, 80, 0.35)" :
@@ -140,7 +141,7 @@ const OpponentCellRenderer = ({name, status, ext_id,  streak, record, onClickTea
     return (
         <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
             {displayAtSign}
-            {ext_id && <img src={logoUrl} style={{width: 24, height: 24}}/>}
+            {ext_id && <img loading="lazy" src={logoUrl} style={{width: 24, height: 24}}/>}
             {name && (
                 <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
                     <Typography
@@ -236,7 +237,7 @@ const GameScoresPage = () => {
     const [selectedSport, setSelectedSport] = useState<string>('americanfootball_nfl');
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(currentSeason);
     const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
-    const [maxAvailableWeek, setMaxAvailableWeek] = useState<number>(18);
+    const [maxAvailableWeek, setMaxAvailableWeek] = useState<number>(null);
 
     const {
         getGameScoresByWeekRestCall,
@@ -245,10 +246,79 @@ const GameScoresPage = () => {
         snapCompletedGameScoresRestCall,
         snapCompletedGameOddsRestCall,
         rollWeekRestCall,
-        createCollegePlayoffGamesRestCall
+        createCollegePlayoffGamesRestCall,
+        togglePrimetimeRestCall,
+        toggleExceptionRestCall
     } = useRestApi();
     const {useStompSubscription} = zWebSocket();
 
+
+    const handleTogglePrimetime = async (gameId: number, currentValue: boolean) => {
+        if (!isAdmin) return;
+
+        try {
+            // optimistic UI update
+            setGameScorePageDTOs(prev =>
+                prev.map(g =>
+                    g.game_id === gameId
+                        ? {...g, primetime: !currentValue}
+                        : g
+                )
+            );
+
+            await togglePrimetimeRestCall(gameId, !currentValue);
+
+            notify("Primetime Updated", "Game primetime status updated", "success");
+        } catch (err) {
+            // rollback on failure
+            setGameScorePageDTOs(prev =>
+                prev.map(g =>
+                    g.game_id === gameId
+                        ? {...g, primetime: currentValue}
+                        : g
+                )
+            );
+
+            notify(
+                "Update Failed",
+                err.message || "Failed to update primetime status",
+                "error"
+            );
+        }
+    };
+    const handleToggleException = async (gameId: number, currentValue: boolean) => {
+        if (!isAdmin) return;
+
+        try {
+            // optimistic UI update
+            setGameScorePageDTOs(prev =>
+                prev.map(g =>
+                    g.game_id === gameId
+                        ? {...g, exception: !currentValue}
+                        : g
+                )
+            );
+
+            await toggleExceptionRestCall(gameId, !currentValue);
+
+            notify("Exception Updated", "Game exception status updated", "success");
+        } catch (err) {
+            // rollback on failure
+            setGameScorePageDTOs(prev =>
+                prev.map(g =>
+                    g.game_id === gameId
+                        ? {...g, exception: currentValue}
+                        : g
+                )
+            );
+
+            notify(
+                "Update Failed",
+                err.message || "Failed to update exception status",
+                "error"
+            );
+        }
+    };
 
     const handleToggleChange = (event, newValues) => {
         if (!newValues) return; // prevent all off state
@@ -304,16 +374,6 @@ const GameScoresPage = () => {
     useStompSubscription('/topic/zevents/GameScoreUpdate', handleGameScoredSavedEvent);
 
 
-    const spin = keyframes`
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    `;
-
-
     useEffect(() => {
         setSelectedSeasonId(currentSeason);
     }, [currentSeason]);
@@ -329,16 +389,15 @@ const GameScoresPage = () => {
 
         getTeamsAndWeeksBySportAndSeasonRestCall(selectedSport, selectedSeasonId)
             .then(data => {
+                // 🔥 Clear selectedWeek ONLY when it exceeds the maxAvailableWeek
+                setSelectedWeek(prevWeek => {
+                    if (prevWeek && prevWeek > data.maxWeekAvailable) {
+                        return null;   // <-- forces user to pick a valid week
+                    }
+                    return prevWeek;
+                });
                 setTeams(data.teams);
                 setMaxAvailableWeek(data.maxWeekAvailable);
-
-                /*
-                                // If in team mode and previous selection still valid, keep it
-                                if (filterMode === 'team') {
-                                    const stillExists = data.teams.some(t => t.id === selectedTeamId);
-                                    if (!stillExists) setSelectedTeamId(null);
-                                }
-                */
 
             })
             .catch(err => {
@@ -348,6 +407,7 @@ const GameScoresPage = () => {
 
     }, [selectedSport, selectedSeasonId]);
 
+
 // Clear table results whenever switching between team/week filters
     useEffect(() => {
         setGameScorePageDTOs([]);       // Clear table rows
@@ -356,34 +416,49 @@ const GameScoresPage = () => {
 
     // fetch game scores
     useEffect(() => {
-        if (selectedSeasonId == 0 || !setSelectedSport) return;
+        if (selectedSeasonId === 0 || !selectedSport) return;
+
+        // TEAM mode guard
         if (filterMode === 'team' && selectedTeamId == null) return;
-        if (filterMode === 'week' && selectedWeek == null) return;
+
+        // WEEK mode guards
+        if (filterMode === 'week') {
+            if (maxAvailableWeek === null) return;             // ⛔ DO NOT FETCH YET
+            if (selectedWeek == null) return;
+            if (selectedWeek > maxAvailableWeek) return;        // ⛔ Prevent invalid fetch
+        }
 
         setLoading(true);
         setError(null);
+
         try {
             if (filterMode === 'week') {
-                getGameScoresByWeekRestCall(selectedSport, selectedSeasonId, selectedWeek).then(data => {
-                    setGameScorePageDTOs(data.records)
-                }).catch(err => {
-                    setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
-                    setGameScorePageDTOs(null);
-                })
-            } else {
-                getGameScoresByTeamRestCall(selectedSport, selectedSeasonId, selectedTeamId ? selectedTeamId : -1).then(data => {
-                    setGameScorePageDTOs(data.records)
-                })
+                getGameScoresByWeekRestCall(selectedSport, selectedSeasonId, selectedWeek)
+                    .then(data => setGameScorePageDTOs(data.records))
                     .catch(err => {
                         setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
                         setGameScorePageDTOs(null);
-                    })
-
+                    });
+            } else {
+                getGameScoresByTeamRestCall(selectedSport, selectedSeasonId, selectedTeamId ?? -1)
+                    .then(data => setGameScorePageDTOs(data.records))
+                    .catch(err => {
+                        setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
+                        setGameScorePageDTOs(null);
+                    });
             }
         } finally {
             setLoading(false);
         }
-    }, [selectedSport, selectedSeasonId, selectedWeek, selectedTeamId]);
+    }, [
+        selectedSport,
+        selectedSeasonId,
+        selectedWeek,
+        selectedTeamId,
+        filterMode,
+        maxAvailableWeek
+    ]);
+
 
     // Helper function to determine if away team won
     const isAwayWinner = (data: GameScorePageDTO) => {
@@ -406,7 +481,7 @@ const GameScoresPage = () => {
             setSnapScoresMessage(gameScoreSnapStatus || "Snap successful");
             setShowSnapScoreTooltip(true);
 
-            setTimeout(() => setShowSnapScoreTooltip(false), 3000);
+            setTimeout(() => setShowSnapScoreTooltip(false), 10000);
 
         } catch (err) {
             setError('Failed to snap game scores. ' + (err.message || 'Please try again.'));
@@ -425,7 +500,7 @@ const GameScoresPage = () => {
             setSnapOddsMessage(oddsSnapStatus || "Snap successful");
             setShowSnapOddsTooltip(true);
 
-            setTimeout(() => setShowSnapOddsTooltip(false), 3000);
+            setTimeout(() => setShowSnapOddsTooltip(false), 10000);
 
         } catch (err) {
             setError('Failed to snap game odds. ' + (err.message || 'Please try again.'));
@@ -474,22 +549,7 @@ const GameScoresPage = () => {
 
     if (loading) {
         return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh',
-                }}
-            >
-                <SportsFootballIcon
-                    sx={{
-                        fontSize: 80,
-                        color: '#1976d2',
-                        animation: `${spin} 1s linear infinite`,
-                    }}
-                />
-            </Box>
+            <LoadingSpinner/>
         );
     }
 
@@ -554,7 +614,7 @@ const GameScoresPage = () => {
 
     const weekOptions = range(1, maxAvailableWeek).map(week => (
         <MenuItem key={week} value={week}>
-            Week {week}
+            {week}
         </MenuItem>
     ));
 
@@ -582,7 +642,6 @@ const GameScoresPage = () => {
                             accessKey="t"
                             onChange={(e, value) => {
                                 setSelectedTeamId(null);
-                                setSelectedWeek(null);
                                 setSelectedSport(e.target.value);
                             }}
                         >
@@ -783,7 +842,8 @@ const GameScoresPage = () => {
                                 disabled={snappingCollegePlayoffGames}
                                 sx={{height: 56}}
                             >
-                                {snappingCollegePlayoffGames ? <CircularProgress size={24}/> : 'Create College Playoff Games'}
+                                {snappingCollegePlayoffGames ?
+                                    <CircularProgress size={24}/> : 'Create College Playoff Games'}
                             </Button>
                         </Tooltip>
                     )}
@@ -816,7 +876,7 @@ const GameScoresPage = () => {
                                     padding: "4px 6px"
                                 }}>Opponent</TableCell>)}
                                 {filterMode == 'week' && (<TableCell>Home</TableCell>)}
-                                {showGameOdds  && (<TableCell>O/U</TableCell>)}
+                                {showGameOdds && (<TableCell>O/U</TableCell>)}
 
                                 <TableCell>Score</TableCell>
                                 {showGameDate && <TableCell>Game Date</TableCell>}
@@ -827,6 +887,12 @@ const GameScoresPage = () => {
                                             tooltip="Game Rank indicates the importance or tier of the matchup (e.g., Prime, Featured, Standard)."
                                         />
                                     </TableCell>
+                                )}
+                                {selectedSport == 'americanfootball_nfl' && isAdmin && (
+                                    <TableCell>Primetime</TableCell>
+                                )}
+                                {selectedSport == 'americanfootball_nfl' && isAdmin && (
+                                    <TableCell>Exception</TableCell>
                                 )}
 
                             </TableRow>
@@ -913,14 +979,16 @@ const GameScoresPage = () => {
                                                         sport={selectedSport}
                                                     />
                                                 </TableCell>)}
-                                            <TableCell>
-                                                {showGameOdds ? (
+                                            {showGameOdds ? (
+                                                <TableCell>
+
                                                     <Tooltip title={`Bookmaker stamp: ${gameScorePageDTO.bookmaker_stamp}`}
-                                                             arrow children={undefined}>
+                                                             arrow>
                                                         <span>{gameScorePageDTO.over_points}</span>
                                                     </Tooltip>
-                                                ) : null}
-                                            </TableCell>
+
+                                                </TableCell>
+                                            ) : null}
                                             <TableCell>
                                                 <ScoreCellRenderer
                                                     game={gameScorePageDTO}
@@ -938,6 +1006,58 @@ const GameScoresPage = () => {
                                                 <TableCell> <GameCategoryRenderer rankType={gameScorePageDTO.rank_type}
                                                                                   homeRank={gameScorePageDTO.home_rank_preseason}
                                                                                   awayRank={gameScorePageDTO.away_rank_preseason}/>
+                                                </TableCell>
+                                            )}
+                                            {selectedSport === 'americanfootball_nfl' && isAdmin && (
+                                                <TableCell
+                                                    onClick={() =>
+                                                        isAdmin &&
+                                                        handleTogglePrimetime(
+                                                            gameScorePageDTO.game_id,gameScorePageDTO.primetime
+                                                        )
+                                                    }
+                                                    sx={{
+                                                        cursor: isAdmin ? 'pointer' : 'default',
+                                                        fontWeight: gameScorePageDTO.primetime ? 600 : 400,
+                                                        color: gameScorePageDTO.primetime ? 'primary.main' : 'text.secondary',
+                                                        '&:hover': isAdmin
+                                                            ? {backgroundColor: 'action.hover'}
+                                                            : undefined
+                                                    }}
+                                                >
+                                                    <Tooltip title={isAdmin ? "Click to toggle primetime" : ""}>
+                                                     <span>
+                                                         {gameScorePageDTO.primetime ?
+                                                             (<StarIcon color="warning"/>) :
+                                                             (<StarIcon color="disabled"/>)}
+                                                    </span>
+                                                    </Tooltip>
+                                                </TableCell>
+                                            )}
+                                            {selectedSport === 'americanfootball_nfl' && isAdmin && (
+                                                <TableCell
+                                                    onClick={() =>
+                                                        isAdmin &&
+                                                        handleToggleException(
+                                                            gameScorePageDTO.game_id,gameScorePageDTO.exception
+                                                        )
+                                                    }
+                                                    sx={{
+                                                        cursor: isAdmin ? 'pointer' : 'default',
+                                                        fontWeight: gameScorePageDTO.exception ? 600 : 400,
+                                                        color: gameScorePageDTO.exception ? 'primary.main' : 'text.secondary',
+                                                        '&:hover': isAdmin
+                                                            ? {backgroundColor: 'action.hover'}
+                                                            : undefined
+                                                    }}
+                                                >
+                                                    <Tooltip title={isAdmin ? "Click to toggle exception" : ""}>
+                                                     <span>
+                                                         {gameScorePageDTO.exception ?
+                                                             (<StarIcon color="warning"/>) :
+                                                             (<StarIcon color="disabled"/>)}
+                                                    </span>
+                                                    </Tooltip>
                                                 </TableCell>
                                             )}
                                         </TableRow>
