@@ -12,25 +12,18 @@ export const getTeamLogoUrl = (
     ext_id: string,sport: string) => {
     let sportUrl='nfl';
     if (sport==='americanfootball_ncaaf') sportUrl='ncaa';
-    return "http://a.espncdn.com/i/teamlogos/"+sportUrl+"/500/" + ext_id + ".png";
+    return "https://a.espncdn.com/i/teamlogos/"+sportUrl+"/500/" + ext_id + ".png";
 };
 
 
 export const useRestApi = () => {
     const {authUser} = useZAppContext();
 
-
-// Get the base URL from the current origin
-    const getBaseServerURL = () => {
-        const {protocol, hostname} = window.location;
-        const serverPort=8082;
-        return `${protocol}//${hostname}:${serverPort}`;
-    };
     const getBaseApiURL = () => {
-        return getBaseServerURL()+`/api/v1`;
+        return import.meta.env.VITE_ZAZA_API_URL+`/api/v1`;
     };
     const getWebSocketEndpoint = () => {
-        return getBaseServerURL()+`/zazafootballpool-websocket`;
+        return import.meta.env.VITE_ZAZA_API_URL+`/ws`;
     };
 
 
