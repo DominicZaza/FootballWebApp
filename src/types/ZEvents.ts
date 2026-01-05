@@ -7,7 +7,6 @@ import type {
 
 export interface GameScoreSavedEvent {
     gameScores: GameScorePageDTO[];
-    sport: string;
     season: number;
     week: number;
 }

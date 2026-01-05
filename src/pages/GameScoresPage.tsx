@@ -209,7 +209,8 @@ const GameScoresPage = () => {
     const [gameScorePageDTOs, setGameScorePageDTOs] = useState<GameScorePageDTO[]>([]);
     const [snappingScores, setSnappingScores] = useState<boolean>(false);
     const [snappingOdds, setSnappingOdds] = useState<boolean>(false);
-    const [snappingCollegePlayoffGames, setSnappingCollegePlayoffGames] = useState<boolean>(false);
+    const [snappingPlayoffGames, setSnappingPlayoffGames] = useState<boolean>(false);
+    const [snappingGameDateTimes, setSnappingGameDateTimes] = useState<boolean>(false);
     const [rollingWeek, setRollingWeek] = useState<boolean>(false);
     const {isAdmin, isMobile, currentWeek, currentSeason, seasons} = useZAppContext();
     //toggle states
@@ -224,10 +225,12 @@ const GameScoresPage = () => {
     const [snapOddsMessage, setSnapOddsMessage] = useState('');
     const [showSnapScoreTooltip, setShowSnapScoreTooltip] = useState(false);
     const [showSnapOddsTooltip, setShowSnapOddsTooltip] = useState(false);
-    const [showSnapCollegePlayoffGamesTooltip, setShowSnapCollegePlayoffGamesTooltip] = useState(false);
+    const [showSnapPlayoffGamesTooltip, setShowSnapPlayoffGamesTooltip] = useState(false);
+    const [showUpdatingGameDateTimesTooltip, setShowUpdatingGameDateTimesTooltip] = useState(false);
     const [showRollingWeekTooltip, setShowRollingWeekTooltip] = useState(false);
     const [rollingWeekReturnMessage, setRollingWeekReturnMessage] = useState('');
-    const [collegePlayoffGamesRestCallReturnMessage, setCollegePlayoffGamesRestCallReturnMessage] = useState('');
+    const [playoffGamesRestCallReturnMessage, setPlayoffGamesRestCallReturnMessage] = useState('');
+    const [updateGameTimesRestCallReturnMessage, setUpdateGameTimesRestCallReturnMessage] = useState('');
     const {notify} = useNotify();
 // Filtering mode: "week" or "team"
     const [filterMode, setFilterMode] = useState<'week' | 'team'>('week');
@@ -246,9 +249,10 @@ const GameScoresPage = () => {
         snapCompletedGameScoresRestCall,
         snapCompletedGameOddsRestCall,
         rollWeekRestCall,
-        createCollegePlayoffGamesRestCall,
+        createPlayoffGamesForSportRestCall,
         togglePrimetimeRestCall,
-        toggleExceptionRestCall
+        toggleExceptionRestCall,
+        updateGameDateTimesRestCall
     } = useRestApi();
     const {useStompSubscription} = zWebSocket();
 
@@ -519,7 +523,7 @@ const GameScoresPage = () => {
             setRollingWeekReturnMessage(rollingWeekReturnMessage || "Successful Rolled Week");
             setShowRollingWeekTooltip(true);
 
-            setTimeout(() => setShowRollingWeekTooltip(false), 3000);
+            setTimeout(() => setShowRollingWeekTooltip(false), 10000);
 
         } catch (err) {
             setError('Failed to roll the week. ' + (err.message || 'Please try again.'));
@@ -528,22 +532,41 @@ const GameScoresPage = () => {
         }
     };
 
-    const handleSnapCollegePlayoffGamesAction = async () => {
+    const handleSnapPlayoffGamesAction = async () => {
         try {
-            setSnappingCollegePlayoffGames(true);
+            setSnappingPlayoffGames(true);
             setError(null);
-            const restCallReturnMessage = await createCollegePlayoffGamesRestCall();
+            const restCallReturnMessage = await createPlayoffGamesForSportRestCall(selectedSport);
 
             // 🟦 Show disappearing tooltip
-            setCollegePlayoffGamesRestCallReturnMessage(restCallReturnMessage || "Successful Created College Games");
-            setShowSnapCollegePlayoffGamesTooltip(true);
+            setPlayoffGamesRestCallReturnMessage(restCallReturnMessage || "Successful Created Playoff Games");
+            setShowSnapPlayoffGamesTooltip(true);
 
-            setTimeout(() => setShowSnapCollegePlayoffGamesTooltip(false), 3000);
+            setTimeout(() => setShowSnapPlayoffGamesTooltip(false), 10000);
 
         } catch (err) {
-            setError('Failed to  create college playoff games. ' + (err.message || 'Please try again.'));
+            setError('Failed to  create  playoff games. ' + (err.message || 'Please try again.'));
         } finally {
-            setSnappingCollegePlayoffGames(false);
+            setSnappingPlayoffGames(false);
+        }
+    };
+
+    const handleUpdatingGameDateTimesAction = async () => {
+        try {
+            setSnappingGameDateTimes(true);
+            setError(null);
+            const restCallReturnMessage = await updateGameDateTimesRestCall(selectedSeasonId, selectedWeek);
+
+            // 🟦 Show disappearing tooltip
+            setUpdateGameTimesRestCallReturnMessage(restCallReturnMessage || "Successful Update game date times");
+            setShowUpdatingGameDateTimesTooltip(true);
+
+            setTimeout(() => setShowUpdatingGameDateTimesTooltip(false), 10000);
+
+        } catch (err) {
+            setError('Failed to update game date times. ' + (err.message || 'Please try again.'));
+        } finally {
+            setSnappingGameDateTimes(false);
         }
     };
 
@@ -757,7 +780,8 @@ const GameScoresPage = () => {
                                               toggleKey="gameOddsToggle"
                                               Icon={TrendingFlatIcon}/>
                     </ToggleButtonGroup>
-
+                </Box>
+                <Box>
                     {/* Snap Game Scores Button - Admin Only */}
                     {isAdmin && (
                         <Tooltip
@@ -824,12 +848,12 @@ const GameScoresPage = () => {
                             </Button>
                         </Tooltip>
                     )}
-                    {/* Create College Playoff Games - Admin Only */}
+                    {/* Create Playoff Games - Admin Only */}
                     {isAdmin && (
                         <Tooltip
-                            title={collegePlayoffGamesRestCallReturnMessage.status}
+                            title={playoffGamesRestCallReturnMessage.status}
                             placement="top"
-                            open={showSnapCollegePlayoffGamesTooltip}
+                            open={showSnapPlayoffGamesTooltip}
                             disableHoverListener
                             disableFocusListener
                             disableTouchListener
@@ -838,17 +862,44 @@ const GameScoresPage = () => {
                             <Button
                                 variant="contained"
                                 color="primary"
-                                onClick={handleSnapCollegePlayoffGamesAction}
-                                disabled={snappingCollegePlayoffGames}
+                                onClick={handleSnapPlayoffGamesAction}
+                                disabled={snappingPlayoffGames}
                                 sx={{height: 56}}
                             >
-                                {snappingCollegePlayoffGames ?
-                                    <CircularProgress size={24}/> : 'Create College Playoff Games'}
+                                {snappingPlayoffGames ?
+                                    <CircularProgress size={24}/> : 'Create Playoff Games For Sport'}
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {/* Update Game Date Times - Admin Only */}
+                    {isAdmin && (
+                        <Tooltip
+                            title={updateGameTimesRestCallReturnMessage.status}
+                            placement="top"
+                            open={showUpdatingGameDateTimesTooltip}
+                            disableHoverListener
+                            disableFocusListener
+                            disableTouchListener
+                            arrow
+                        >
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleUpdatingGameDateTimesAction}
+                                disabled={snappingGameDateTimes}
+                                sx={{height: 56}}
+                            >
+                                {snappingGameDateTimes ?
+                                    <CircularProgress size={24}/> : 'Update Game Date Times for Selected Week'}
                             </Button>
                         </Tooltip>
                     )}
 
                 </Box>
+
+
+
+
 
                 {error && (
                     <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>

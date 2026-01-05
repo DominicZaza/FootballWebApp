@@ -170,8 +170,8 @@ export const useRestApi = () => {
     const submitPickRestCall = async (pick: PickSubmission): Promise<string> => {
         return await makeRestCall(`/picks/submit`, 'POST',JSON.stringify(pick));
     };
-    const createCollegePlayoffGamesRestCall = async (): Promise<string> => {
-        return await makeRestCall(`/games/downloadCollegePlayoffGames`, 'PUT');
+    const createPlayoffGamesForSportRestCall = async (sport: string): Promise<string> => {
+        return await makeRestCall(`/games/downloadPlayoffGames/sport/${sport}`, 'PUT');
     };
     const getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall = async (season: number, poolTypeId: number): Promise<SeasonWeekDTO[]> => {
         return await makeRestCall(`/seasonweek/season/${season}/poolType/${poolTypeId}`, 'GET');
@@ -183,6 +183,11 @@ export const useRestApi = () => {
     const toggleExceptionRestCall = async (gameId: number): Promise<string> => {
         return await makeRestCall(`/games/toggleException/${gameId}`, 'PUT');
     };
+    const updateGameDateTimesRestCall = async ( season: number, week: number): Promise<string> => {
+        return await makeRestCall(`/games/updateGameDateTimes/season/${season}/week/${week}`, 'PUT');
+    };
+
+
     const submitPickemRestCall = async (entryId: number, gameId: number, pick: string, removeExisting: boolean, period: number): Promise<string> => {
         const payload = {
             entryId: entryId,
@@ -194,7 +199,6 @@ export const useRestApi = () => {
 
         return await makeRestCall(`/pickem/submitPick`, 'POST',JSON.stringify(payload));
     };
-
 
 
     return {
@@ -224,13 +228,14 @@ export const useRestApi = () => {
         getMyGamesPageRestCall,
         submitPickRestCall,
         getTeamsAndWeeksBySportAndSeasonRestCall,
-        createCollegePlayoffGamesRestCall,
+        createPlayoffGamesForSportRestCall,
         getWeeklyPickemByPoolInstanceAndPeriodRestCall,
         getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall,
         getMyPickemsByEntrySeasonPeriod,
         togglePrimetimeRestCall,
         toggleExceptionRestCall,
         submitPickemRestCall,
+        updateGameDateTimesRestCall
      };
 
 };

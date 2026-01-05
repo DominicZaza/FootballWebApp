@@ -19,7 +19,7 @@ import type { SelectChangeEvent } from "@mui/material/Select/SelectInput";
 import { useRestApi } from "../../api/RestInvocations.ts";
 import LoadingSpinner from "../../components/LoadingSpinner.tsx";
 import type {SeasonWeekDTO, WeeklyPickemCardDTO} from "../../types/ZTypes.ts";
-import {formatDateSmall} from '../../utils/DateUtils'
+import {formatDateSmall, formatDate} from '../../utils/DateUtils'
 
 const WeeklyPickemsPage = () => {
 
@@ -217,6 +217,12 @@ const WeeklyPickemsPage = () => {
                                                     ? `+${pick.homeTeamSpread}`
                                                     : pick.homeTeamSpread}
                                                 ) O/U {pick.overPoints}
+                                            </Typography>
+                                        </Grid>
+
+                                        <Grid size="auto">
+                                            <Typography variant="body2">
+                                                {formatDate(pick.commenceTime,isMobile)}
                                             </Typography>
                                         </Grid>
 
