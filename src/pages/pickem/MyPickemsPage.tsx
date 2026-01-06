@@ -63,7 +63,6 @@ const MyPickemsPage = () => {
         isMobile,
         currentPeriod,
         currentSeason,
-        seasons,
         selectedEntry
     } = useZAppContext();
 
@@ -467,17 +466,16 @@ const MyPickemsPage = () => {
                 <TableRow
                     key={myPickem.game_id || index}
                     sx={{
+                        px: 0.1,
                         '&:hover': {
                             backgroundColor: 'action.hover'
                         }
                     }}
                 >
                     <TableCell>{index + 1}</TableCell>
-
-
                     <TableCell>
                         <TeamCellRenderer
-                            name={myPickem.away_team_name}
+                            name={  isMobile?myPickem.away_team_abbreviation: myPickem.away_team_name}
                             ext_id={myPickem.away_team_ext_id}
                             streak={!showTeamWinStreaks || !myPickem.completed ? '' : myPickem.away_current_streak}
                             record={!showTeamRecords || !myPickem.completed ? '' : `${myPickem.away_wins}-${myPickem.away_losses}-${myPickem.away_ties}`}
@@ -495,7 +493,7 @@ const MyPickemsPage = () => {
 
                     <TableCell>
                         <TeamCellRenderer
-                            name={myPickem.home_team_name}
+                            name={ isMobile?myPickem.home_team_abbreviation: myPickem.home_team_name}
                             ext_id={myPickem.home_team_ext_id}
                             streak={!showTeamWinStreaks || !myPickem.completed ? '' : myPickem.home_current_streak}
                             record={!showTeamRecords || !myPickem.completed ? '' : `${myPickem.home_wins}-${myPickem.home_losses}-${myPickem.home_ties}`}
@@ -513,7 +511,7 @@ const MyPickemsPage = () => {
 
                     <TableCell>
                         <Box sx={{
-                            display: "flex", alignItems: "center", gap: 0.5,
+                            display: "flex", alignItems: "center",
                             cursor: canPick ? "default" : "not-allowed",
                             '&:hover': canPick ? {color: 'primary.main'} : {}
                         }}
@@ -574,10 +572,9 @@ const MyPickemsPage = () => {
     /* -------------------------------- Render ----------------------------------- */
 
     return (
-        <Box sx={{p: 3}}>
+        <Box sx={{p: 0.5}}>
             {/* Header */}
-            <Box sx={{display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap', alignItems: 'center'}}>
-                <Typography variant="h4">My Pickems</Typography>
+            <Box sx={{display: 'flex', gap: 0.5, mb: 3, flexWrap: 'wrap', alignItems: 'center'}}>
 
                 {pickemEntryControl && (
                     <Chip
@@ -627,28 +624,6 @@ const MyPickemsPage = () => {
             </Box>
             <Box>
                 {/* Season Selector */}
-                <FormControl sx={{minWidth: 150}}>
-                    <InputLabel id="seasons-selector-label">
-                        <u>S</u>eason
-                    </InputLabel>
-                    <Select
-                        labelId="season-selector-label"
-                        id="seasonSelector"
-                        value={selectedSeasonId || ''}
-                        label="Season"
-                        accessKey="S"
-                        onChange={(e) => {
-                            setSelectedSeasonId(e.target.value);
-                        }}
-                    >
-                        {seasons.map((season) => (
-                            <MenuItem key={season.id} value={season.id}>
-                                {season.name}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-
                 <FormControl sx={{minWidth: 150}}>
                     <InputLabel id="period-selector-label">
                         <u>W</u>eek

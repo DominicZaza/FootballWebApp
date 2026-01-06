@@ -12,6 +12,8 @@ export interface TeamDTO {
     id: number;
     sport: string;
     name: string;
+    abbreviation: string;
+    short_display_name: string;
     stamp: string;
     ext_id: string;
 }
@@ -127,6 +129,8 @@ export interface WeeklyPicksDTO {
     current_streak_type: string;
     current_streak: number;
     home_team: string;
+    home_team_abbreviation: string;
+    away_team_abbreviation: string;
     away_team: string;
     commence_time: string;
     home_rank: number;
@@ -150,9 +154,12 @@ export interface GameScorePageDTO {
     home_team_id: number,
     home_team_ext_id: string,
     home_team_name: string,
+    home_team_abbreviation: string,
     away_team_id: number,
     away_team_ext_id: string,
     away_team_name: string,
+    away_team_abbreviation: string,
+    sport: string,
     commence_time: string,
     primetime: boolean
     home_rank_current: number,
@@ -193,7 +200,9 @@ export interface MyGamesPageDTO {
     pickStatus: string,
     current_streak: string,
     home_team: string,
+    home_team_abbreviation: string,
     away_team: string,
+    away_team_abbreviation: string,
     commence_time: string,
     home_rank: number,
     away_rank: number,
@@ -264,8 +273,10 @@ export interface WeeklyPickemDTO {
     commenceTime: string;
     primetime: boolean;
     homeTeam: string;
+    homeTeamAbbreviation: string;
     homeTeamId: string;
     awayTeam: string;
+    awayTeamAbbreviation: string;
     awayTeamId: string;
     homeScore: string;
     awayScore: string;
@@ -315,9 +326,11 @@ export interface MyPickemsGamesDTO {
     home_team_id: number,
     home_team_ext_id: string,
     home_team_name: string,
+    home_team_abbreviation: string,
     away_team_id: number,
     away_team_ext_id: string,
     away_team_name: string,
+    away_team_abbreviation: string,
     commence_time: string,
     primetime: boolean,
     home_score: number,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 
 import {
     Box,
@@ -14,16 +14,16 @@ import {
     Grid
 } from "@mui/material";
 
-import { useZAppContext } from "../../components/AppContextProvider.tsx";
-import type { SelectChangeEvent } from "@mui/material/Select/SelectInput";
-import { useRestApi } from "../../api/RestInvocations.ts";
+import {useZAppContext} from "../../components/AppContextProvider.tsx";
+import type {SelectChangeEvent} from "@mui/material/Select/SelectInput";
+import {useRestApi} from "../../api/RestInvocations.ts";
 import LoadingSpinner from "../../components/LoadingSpinner.tsx";
 import type {SeasonWeekDTO, WeeklyPickemCardDTO} from "../../types/ZTypes.ts";
 import {formatDateSmall, formatDate} from '../../utils/DateUtils'
 
 const WeeklyPickemsPage = () => {
 
-    const { isMobile, selectedEntry, currentPeriod ,currentSeason, seasons} = useZAppContext();
+    const {isMobile, selectedEntry, currentPeriod, currentSeason} = useZAppContext();
     const [loading, setLoading] = useState<boolean>(true);
     const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,6 @@ const WeeklyPickemsPage = () => {
     };
 
 
-
     useEffect(() => {
         if (currentPeriod) {
             setSelectedPeriod(currentPeriod);
@@ -50,7 +49,7 @@ const WeeklyPickemsPage = () => {
     }, [currentPeriod]);
 
     useEffect(() => {
-        if (!selectedEntry || !selectedEntry.id || !selectedPeriod ) return;
+        if (!selectedEntry || !selectedEntry.id || !selectedPeriod) return;
 
         setLoading(true);
         setError(null);
@@ -120,45 +119,24 @@ const WeeklyPickemsPage = () => {
 
     // Generate period options
     const periodOptions = [];
-    {periods && periods.map((period) => (
-        periodOptions.push(
-            <MenuItem key={period.id} value={period.period}>
-                Week {period.period} - {formatDateSmall(period.periodStart,isMobile)} - {formatDateSmall(period.periodEnd,isMobile)}
-            </MenuItem>
-        )))
+    {
+        periods && periods.map((period) => (
+            periodOptions.push(
+                <MenuItem key={period.id} value={period.period}>
+                    Week {period.period} - {formatDateSmall(period.periodStart, isMobile)} - {formatDateSmall(period.periodEnd, isMobile)}
+                </MenuItem>
+            )))
     }
 
     if (loading) {
-        return <LoadingSpinner />;
+        return <LoadingSpinner/>;
     }
 
     return (
         <div>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                {/* Season Selector */}
-                <FormControl sx={{minWidth: 150}}>
-                    <InputLabel id="seasons-selector-label">
-                        <u>S</u>eason
-                    </InputLabel>
-                    <Select
-                        labelId="season-selector-label"
-                        id="seasonSelector"
-                        value={selectedSeasonId || ''}
-                        label="Season"
-                        accessKey="S"
-                        onChange={(e, value) => {
-                            setSelectedSeasonId(e.target.value);
-                        }}
-                    >
-                        {seasons.map((season) => (
-                            <MenuItem key={season.id} value={season.id}>
-                                {season.name}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+            <Box sx={{display: 'flex', alignItems: 'center', mb: 3}}>
 
-                <FormControl sx={{ minWidth: 150 }}>
+                <FormControl sx={{minWidth: 150}}>
                     <InputLabel id="period-selector-label">
                         <u>W</u>eek
                     </InputLabel>
@@ -176,7 +154,7 @@ const WeeklyPickemsPage = () => {
             </Box>
 
             {weeklyPickemRecords.map((record) => (
-                <Card key={record.entry_id} sx={{ mb: 3, boxShadow: 3 }}>
+                <Card key={record.entry_id} sx={{mb: 3, boxShadow: 3}}>
                     <CardContent>
                         <Box
                             sx={{
@@ -186,53 +164,51 @@ const WeeklyPickemsPage = () => {
                                 mb: 2
                             }}
                         >
-                            <Typography variant="h6" sx={{ flex: 1, fontWeight: 'bold' }}>
+                            <Typography variant="h6" sx={{flex: 1, fontWeight: 'bold'}}>
                                 {record.entry_name}
                             </Typography>
 
-                            <Typography variant="subtitle1" sx={{ flex: 1, textAlign: 'center' }}>
+                            <Typography variant="subtitle1" sx={{flex: 1, textAlign: 'center'}}>
                                 {record.week_wins}-{record.week_losses}-{record.week_pushes}
                             </Typography>
 
                             <Typography
                                 variant="subtitle1"
-                                sx={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}
+                                sx={{flex: 1, textAlign: 'right', fontWeight: 'bold'}}
                             >
                                 {record.total_wins}-{record.total_losses}-{record.total_pushes} {formatWinPct(record.total_win_pct)}
                             </Typography>
                         </Box>
 
-                        <Divider sx={{ mb: 1 }} />
+                        <Divider sx={{mb: 1}}/>
 
                         {record.weeklyPickemDTOList.map((pick, index) => {
                             const chipProps = getChipStyles(pick.pickStatus);
 
                             return (
-                                <Box key={index} sx={{ py: 0.5 }}>
+                                <Box key={index} sx={{py: 0.5}}>
                                     <Grid container spacing={2} alignItems="center">
                                         <Grid size="grow">
                                             <Typography variant="body2">
-                                                {pick.awayTeam} @ {pick.homeTeam} (
-                                                {pick.homeTeamSpread > 0
-                                                    ? `+${pick.homeTeamSpread}`
-                                                    : pick.homeTeamSpread}
-                                                ) O/U {pick.overPoints}
+                                                {isMobile ? pick.awayTeamAbbreviation : pick.awayTeam} @ {isMobile ? pick.homeTeamAbbreviation : pick.homeTeam} (
+                                                {pick.homeTeamSpread > 0 ? `+${pick.homeTeamSpread}` : pick.homeTeamSpread})
+                                                O/U {pick.overPoints}
                                             </Typography>
                                         </Grid>
 
                                         <Grid size="auto">
                                             <Typography variant="body2">
-                                                {formatDate(pick.commenceTime,isMobile)}
+                                                {formatDate(pick.commenceTime, isMobile)}
                                             </Typography>
                                         </Grid>
 
-                                        <Grid size="auto" sx={{ minWidth: 100, textAlign: 'center' }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                        <Grid size="auto" sx={{textAlign: 'center'}}>
+                                            <Typography variant="body2" sx={{fontWeight: 'bold'}}>
                                                 {pick.awayScore} - {pick.homeScore}
                                             </Typography>
                                         </Grid>
 
-                                        <Grid size="auto" sx={{ minWidth: 150, textAlign: 'right' }}>
+                                        <Grid size="auto" sx={{textAlign: 'right'}}>
                                             <Chip
                                                 label={`${pick.pick} (${pick.pickStatus})`}
                                                 size="small"
@@ -248,7 +224,7 @@ const WeeklyPickemsPage = () => {
             ))}
 
             {weeklyPickemRecords.length === 0 && !loading && (
-                <Typography variant="body1" sx={{ textAlign: 'center', mt: 4 }}>
+                <Typography variant="body1" sx={{textAlign: 'center', mt: 4}}>
                     No records found for the selected week.
                 </Typography>
             )}
