@@ -7,8 +7,7 @@ export const formatDate = (dateString: string, isMobile: boolean) => {
     // Mobile users get a shorter, more compact format
     const options = isMobile
         ? {
-            month: 'numeric',
-            day: 'numeric',
+            weekday: 'short',
             hour: '2-digit',
             minute: '2-digit'
         }

@@ -184,8 +184,17 @@ const MyPickemsPage = () => {
         setSelectedSeasonId(currentSeason);
     }, [currentSeason]);
 
+
+    const periodsFetchedRef = React.useRef(false);
+
     useEffect(() => {
-        if (!selectedSeasonId || !selectedEntry) return;
+        if (!selectedSeasonId || !selectedEntry?.poolTypeId) return;
+
+        // Prevent redundant calls
+        if (periods.length > 0 && periods[0].seasonId === selectedSeasonId) return;
+
+        if (periodsFetchedRef.current) return; // guard multiple fetches
+        periodsFetchedRef.current = true;
 
         getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall(
             selectedSeasonId,
@@ -195,6 +204,7 @@ const MyPickemsPage = () => {
             .catch(() => {
                 setError("Failed to retrieve periods");
                 setPeriods([]);
+                periodsFetchedRef.current = false; // allow retry on failure
             });
     }, [selectedSeasonId, selectedEntry]);
 
@@ -322,7 +332,8 @@ const MyPickemsPage = () => {
     });
 
     // Chip styling based on pick status
-    const getTeamChipStyles = (status: string) => {
+    const getTeamChipStyles = (teamStatus: string,totalStatus: string) => {
+        const status = teamStatus === null ? totalStatus : teamStatus;
         switch (status) {
             case "Won":
                 return {
@@ -439,7 +450,7 @@ const MyPickemsPage = () => {
 
     const PickemRow = React.memo(({myPickem, index}) => {
             const homeSpread = myPickem.home_team_spread;
-            const chipProps = getTeamChipStyles(myPickem.teampickstatus);
+            const chipProps = getTeamChipStyles(myPickem.teampickstatus,myPickem.totalpickstatus);
             const outlineColor = getTeamPickOutlineColor(myPickem);
             const outlineStyle = myPickem.teampickstatus === "Pending" ? "dashed" : "solid";
             const canPick = pickemEntryControl?.pickAllowed && homeSpread != null;

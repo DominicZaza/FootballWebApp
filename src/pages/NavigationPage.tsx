@@ -108,6 +108,7 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
     }, []);
 
 
+
 //load all data once authUser is available
     useEffect(() => {
         if (!authInitialized || !authUser) return;
@@ -127,11 +128,6 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
             .finally(() => setLoading(false));
     }, [authUser]);
 
-
-    // After entries load, pick the first one
-    useEffect(() => {
-        if (entries.length > 0 && !selectedEntry) setSelectedEntry(entries[0]);
-    }, [entries, selectedEntry]);
 
 
     // WebSocket message handler
@@ -168,6 +164,15 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
         const entryId = event.target.value;
         const entry = entries.find(e => e.id == entryId);
         setSelectedEntry(entry ?? null);
+
+        if (!entry) return; // prevent all off state
+
+        const prefs = {
+            selectedEntryDTO: entry
+        };
+        // 🟦 persist to browser
+        localStorage.setItem("NavigationPagePrefs.entry", JSON.stringify(prefs));
+
     };
 
 
@@ -215,13 +220,36 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
         return rawTabs.filter(t => (t.isVisible ? t.isVisible() : true));
     }, [poolTypeId, isAdmin]);
 
-    // Reset tab whenever pooltype changes (no need to preserve selection)
+    //load/restore user prefs from browser
     useEffect(() => {
-        setCurrentTabId(tabsForPoolType[0]?.id ?? '__none__');
-    }, [poolTypeId, tabsForPoolType]);
+        const savedEntry = localStorage.getItem("NavigationPagePrefs.entry");
+        if (entries.length == 0) return;
+        if (savedEntry) {
+            const prefs = JSON.parse(savedEntry);
+            setSelectedEntry(prefs.selectedEntryDTO);
+        } else
+            setSelectedEntry(entries[0]);
+
+        if  (  tabsForPoolType[poolTypeId]?.id == null) return;
+        const saved = localStorage.getItem("NavigationPagePrefs.tab");
+        if (saved) {
+            const prefs = JSON.parse(saved);
+            setCurrentTabId(prefs.currentTabId);
+        }else
+            setCurrentTabId(tabsForPoolType[0]?.id ?? '__none__');
+
+
+    }, [entries,tabsForPoolType]);
+
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
         setCurrentTabId(newValue);
+        const prefs = {
+            currentTabId: newValue
+        };
+        // 🟦 persist to browser
+        localStorage.setItem("NavigationPagePrefs.tab", JSON.stringify(prefs));
+
     };
 
     //This is a known MUI Tabs timing issue, and your diagnosis is correct:

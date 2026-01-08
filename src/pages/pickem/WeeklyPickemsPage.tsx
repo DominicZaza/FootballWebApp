@@ -1,5 +1,4 @@
-import React, {useEffect, useState} from 'react';
-
+import React, {memo, useEffect, useState} from 'react';
 import {
     Box,
     FormControl,
@@ -9,17 +8,20 @@ import {
     Card,
     CardContent,
     Typography,
-    Divider,
-    Chip,
-    Grid
+    Grid, Collapse, FormControlLabel, Switch, Tooltip
 } from "@mui/material";
 
 import {useZAppContext} from "../../components/AppContextProvider.tsx";
 import type {SelectChangeEvent} from "@mui/material/Select/SelectInput";
 import {useRestApi} from "../../api/RestInvocations.ts";
 import LoadingSpinner from "../../components/LoadingSpinner.tsx";
-import type {SeasonWeekDTO, WeeklyPickemCardDTO} from "../../types/ZTypes.ts";
+import type { SeasonWeekDTO, WeeklyPickemCardDTO, WeeklyPickemDTO} from "../../types/ZTypes.ts";
 import {formatDateSmall, formatDate} from '../../utils/DateUtils'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import { Chip } from "@mui/material";
 
 const WeeklyPickemsPage = () => {
 
@@ -30,23 +32,37 @@ const WeeklyPickemsPage = () => {
     const [weeklyPickemRecords, setWeeklyPickemRecords] = useState<WeeklyPickemCardDTO[]>([]);
     const [periods, setPeriods] = useState<SeasonWeekDTO[]>([]);
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(currentSeason);
+    const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
+    const [allCollapsed, setAllCollapsed] = useState<boolean>(false);
 
     const {
         getWeeklyPickemByPoolInstanceAndPeriodRestCall,
-        getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall
+        getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall,
+        getTeamLogoUrl
     } = useRestApi();
 
     const handlePeriodChange = (event: SelectChangeEvent) => {
         const period = event.target.value;
-        setSelectedPeriod(period);
+        setSelectedPeriod(period as number);
     };
 
-
     useEffect(() => {
+        if (!periods.length) return;
         if (currentPeriod) {
             setSelectedPeriod(currentPeriod);
         }
-    }, [currentPeriod]);
+    }, [periods]);
+
+    useEffect(() => {
+        if (!weeklyPickemRecords.length) return;
+
+        const allAreCollapsed = weeklyPickemRecords.every(
+            record => collapsedCards[record.entry_id]
+        );
+
+        setAllCollapsed(allAreCollapsed);
+    }, [collapsedCards, weeklyPickemRecords]);
+
 
     useEffect(() => {
         if (!selectedEntry || !selectedEntry.id || !selectedPeriod) return;
@@ -63,83 +79,183 @@ const WeeklyPickemsPage = () => {
     }, [selectedEntry, selectedPeriod]);
 
     useEffect(() => {
-        getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall(selectedSeasonId, selectedEntry?.poolTypeId)
+        if (!selectedSeasonId || !selectedEntry?.poolTypeId) return;
+
+        // Prevent redundant calls if periods for this season/poolType are already loaded
+        if (periods.length > 0 && periods[0].seasonId === selectedSeasonId) return;
+
+        getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall(selectedSeasonId, selectedEntry.poolTypeId)
             .then(setPeriods)
             .catch(err => {
                 setError('Failed to retrieve periods. ' + (err.message || 'Please try again.'));
                 setPeriods([]);
             });
 
-    }, [selectedSeasonId]);
+    }, [selectedSeasonId, selectedEntry?.poolTypeId]);
 
-    // Chip styling based on pick status
-    const getChipStyles = (status: string) => {
-        switch (status) {
-            case "Won":
-                return {
-                    color: "success" as const,
-                    variant: "filled" as const,
-                };
-            case "Lost":
-                return {
-                    color: "error" as const,
-                    variant: "filled" as const,
-                };
-            case "Push":
-                return {
-                    color: "warning" as const,
-                    variant: "filled" as const,
-                };
-            case "Pending":
-                return {
-                    color: "primary" as const,
-                    variant: "outlined" as const,
-                    sx: {
-                        borderWidth: 2,
-                        borderStyle: "solid",
-                        borderImageSlice: 1,
-                        borderImageSource:
-                            "linear-gradient(45deg, #1976d2, #42a5f5)",
-                        color: "#1976d2",
-                    },
-                };
-            default:
-                return {
-                    color: "default" as const,
-                    variant: "filled" as const,
-                };
-        }
-    };
     const formatWinPct = (winPct: number) => {
-        if (winPct == null || isNaN(winPct)) {
-            return "-";  // Return a placeholder if the win percentage is null or invalid
-        }
-        return `${(winPct * 100).toFixed(2)}%`;  // Multiply by 100 to get the percentage and format it to 2 decimals
+        if (winPct == null || isNaN(winPct)) return "-";
+        return `${(winPct * 100).toFixed(1)}%`;
     };
 
-    // Generate period options
-    const periodOptions = [];
-    {
-        periods && periods.map((period) => (
-            periodOptions.push(
-                <MenuItem key={period.id} value={period.period}>
-                    Week {period.period} - {formatDateSmall(period.periodStart, isMobile)} - {formatDateSmall(period.periodEnd, isMobile)}
-                </MenuItem>
-            )))
-    }
+
+    type TeamRendererProps = {
+        name: string;
+        abbr: string;
+        logo: string;
+        score: string;
+        spread?: number;
+        isPick?: boolean;
+        isMobile?: boolean;
+        gameCompleted?: boolean;
+        teamPickStatus?: "Won" | "Lost" | "Push" | "Pending" | null;
+    };
+
+    const TeamRenderer = memo(
+        ({
+             name,
+             abbr,
+             logo,
+             score,
+             spread,
+             isPick,
+             isMobile,
+            gameCompleted = false,
+            teamPickStatus = null,
+         }: TeamRendererProps) => {
+            const logoSize = isMobile ? 24 : 32;
+
+            return (
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between', // keeps score vertically aligned
+                        gap: 1,
+                        flex: 1,
+                        minWidth: 0,
+                    }}
+                >
+                    {/* Left: Logo + team name/spread */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            minWidth: 0,
+                        }}
+                    >
+                        <Box
+                            component="img"
+                            src={logo}
+                            alt={name}
+                            sx={{ width: logoSize, height: logoSize, flexShrink: 0 }}
+                        />
+
+                        <Box
+/*
+                            sx={{
+                                flexGrow: 1,
+                                minWidth: 0,
+                                px: 0.5,
+                                py: 0.25,
+
+                            }}
+*/
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                                minWidth: 0,
+                                overflow: "hidden",
+                            }}                        >
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    fontWeight: 700,
+                                    fontSize: isMobile ? '0.7rem' : '0.95rem',
+                                    lineHeight: 1.1,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                {isMobile ? abbr : name}
+                            </Typography>
+                            {/* Pick Status Icon */}
+                            {isPick && gameCompleted && teamPickStatus && (
+                                <>
+                                    {teamPickStatus === "Won" && (
+                                        <CheckCircleIcon sx={{ color: 'green', fontSize: isMobile ? 16 : 20 }} />
+                                    )}
+                                    {teamPickStatus === "Lost" && (
+                                        <CancelIcon sx={{ color: 'red', fontSize: isMobile ? 16 : 20 }} />
+                                    )}
+                                    {teamPickStatus === "Push" && (
+                                        <HourglassEmptyIcon sx={{ color: 'orange', fontSize: isMobile ? 16 : 20 }} />
+                                    )}
+                                </>
+                            )}
+
+                            {/* Pending pick */}
+                            {isPick && !gameCompleted && (
+                                <HourglassEmptyIcon sx={{ color: 'gray', fontSize: isMobile ? 16 : 20 }} />
+                            )}
+
+                            {spread != null && (
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        display: 'block',
+                                        fontSize: isMobile ? '0.6rem' : '0.65rem',
+                                        lineHeight: 1.1,
+                                        color: 'text.secondary',
+                                    }}
+                                >
+                                    {spread > 0 ? `+${spread}` : spread}
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
+
+                    {/* Right: Plain score text */}
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontWeight: 700,
+                            fontSize: isMobile ? '0.7rem' : '0.95rem',
+                            lineHeight: 1.1,
+                            minWidth: 24, // optional: keeps vertical alignment if numbers vary
+                            textAlign: 'right',
+                        }}
+                    >
+                        {score}
+                    </Typography>
+                </Box>
+            );
+        }
+    );
+
+
+
+
+
 
     if (loading) {
         return <LoadingSpinner/>;
     }
+    const toggleCard = (entryId: number) => {
+        setCollapsedCards(prev => ({
+            ...prev,
+            [entryId]: !prev[entryId],
+        }));
+    };
 
     return (
-        <div>
+        <Box sx={{p: isMobile ? 1 : 3}}>
             <Box sx={{display: 'flex', alignItems: 'center', mb: 3}}>
-
                 <FormControl sx={{minWidth: 150}}>
-                    <InputLabel id="period-selector-label">
-                        <u>W</u>eek
-                    </InputLabel>
+                    <InputLabel id="period-selector-label"><u>W</u>eek</InputLabel>
                     <Select
                         labelId="period-selector-label"
                         id="periodSelector"
@@ -148,78 +264,207 @@ const WeeklyPickemsPage = () => {
                         accessKey="W"
                         onChange={handlePeriodChange}
                     >
-                        {periodOptions}
+                        {periods && periods.map((period) => (
+                            <MenuItem key={period.id} value={period.period}>
+                                Week {period.period} - {formatDateSmall(period.periodStart, isMobile)}
+                            </MenuItem>
+                        ))}
                     </Select>
                 </FormControl>
+
+                <Tooltip title={allCollapsed ? 'Expand all entries' : 'Collapse all entries'}>
+                    {/* Push switch to extreme right */}
+                    <Box sx={{ml: 'auto'}}>
+
+                        {/* Expand / Collapse All */}
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={!allCollapsed}
+                                    onChange={() => {
+                                        const nextCollapsed = allCollapsed;
+
+                                        const newState: Record<number, boolean> = {};
+                                        weeklyPickemRecords.forEach(record => {
+                                            newState[record.entry_id] = !nextCollapsed;
+                                        });
+
+                                        setCollapsedCards(newState);
+                                    }}
+                                />
+                            }
+                            label={isMobile ? '' : allCollapsed ? 'Expand All' : 'Collapse All'}
+                        />
+                    </Box>
+                </Tooltip>
             </Box>
 
             {weeklyPickemRecords.map((record) => (
-                <Card key={record.entry_id} sx={{mb: 3, boxShadow: 3}}>
-                    <CardContent>
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                mb: 2
-                            }}
-                        >
-                            <Typography variant="h6" sx={{flex: 1, fontWeight: 'bold'}}>
-                                {record.entry_name}
+                <Card key={record.entry_id} sx={{
+                    mb: 4,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    border: '1px solid text.secondary',
+                    boxShadow: 'none'
+                }}>
+                    <Box
+                        onClick={() => toggleCard(record.entry_id)}
+                        sx={{
+                            bgcolor: 'action.hover',
+                            p: 1.5,
+                            borderBottom: '1px solid text.primary',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                        <Typography variant="subtitle2" sx={{fontWeight: 700, color: 'text.secondary'}}>
+                             {record.entry_name}
+                        </Typography>
+                        <Box sx={{display: 'flex', gap: 2}}>
+                            <Typography variant="caption" sx={{fontWeight: 600}}>
+                                WEEK: {record.week_wins}-{record.week_losses}-{record.week_pushes}
                             </Typography>
-
-                            <Typography variant="subtitle1" sx={{flex: 1, textAlign: 'center'}}>
-                                {record.week_wins}-{record.week_losses}-{record.week_pushes}
-                            </Typography>
-
-                            <Typography
-                                variant="subtitle1"
-                                sx={{flex: 1, textAlign: 'right', fontWeight: 'bold'}}
-                            >
-                                {record.total_wins}-{record.total_losses}-{record.total_pushes} {formatWinPct(record.total_win_pct)}
+                            <Typography variant="caption" sx={{fontWeight: 600, color: 'text.secondary'}}>
+                                TOTAL: {record.total_wins}-{record.total_losses} ({formatWinPct(record.total_win_pct)})
                             </Typography>
                         </Box>
+                        <ExpandMoreIcon
+                            sx={{
+                                transform: collapsedCards[record.entry_id] ? 'rotate(0deg)': 'rotate(180deg)',
+                                transition: 'transform 0.2s',
+                                color: 'text.secondary'
+                            }}
+                        />
 
-                        <Divider sx={{mb: 1}}/>
+                    </Box>
+                    <Collapse in={!collapsedCards[record.entry_id]} timeout="auto" unmountOnExit>
+                        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+                            {record.weeklyPickemDTOList.map((pick, index) => {
 
-                        {record.weeklyPickemDTOList.map((pick, index) => {
-                            const chipProps = getChipStyles(pick.pickStatus);
+                                return (
+                                    <Box
+                                        key={index}
+                                        sx={{
+                                            p: 1.5,
+                                            borderBottom:
+                                                index === record.weeklyPickemDTOList.length - 1
+                                                    ? 'none'
+                                                    : '1px solid #f0f0f0',
+                                            '&:hover': { bgcolor: 'action.hover' },
+                                        }}
+                                    >
+                                        <Grid container spacing={1} alignItems="center">
+                                            {/* Left side: Teams + O/U + Date */}
+                                            <Grid size={{ xs:12, md:8 }}>
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                    {/* Row 1: Teams */}
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            gap: isMobile ? 1 : 2,
+                                                            flexWrap: 'nowrap', // prevents wrapping for vertical score alignment
+                                                        }}
+                                                    >
+                                                        <Box sx={{ display: 'flex', flex: 1 }}>
+                                                            <TeamRenderer
+                                                                name={pick.awayTeam}
+                                                                abbr={pick.awayTeamAbbreviation}
+                                                                logo={getTeamLogoUrl(pick.awayTeamId, pick.sport)}
+                                                                score={pick.awayScore}
+                                                                gameCompleted={pick.gameCompleted}
+                                                                isPick={pick.teamPick === 'Away'}
+                                                                isMobile={isMobile}
+                                                                teamPickStatus={pick.teamPickStatus}
+                                                            />
+                                                        </Box>
 
-                            return (
-                                <Box key={index} sx={{py: 0.5}}>
-                                    <Grid container spacing={2} alignItems="center">
-                                        <Grid size="grow">
-                                            <Typography variant="body2">
-                                                {isMobile ? pick.awayTeamAbbreviation : pick.awayTeam} @ {isMobile ? pick.homeTeamAbbreviation : pick.homeTeam} (
-                                                {pick.homeTeamSpread > 0 ? `+${pick.homeTeamSpread}` : pick.homeTeamSpread})
-                                                O/U {pick.overPoints}
-                                            </Typography>
+                                                        <Box sx={{ display: 'flex', flex: 1 }}>
+                                                            <TeamRenderer
+                                                                name={pick.homeTeam}
+                                                                abbr={pick.homeTeamAbbreviation}
+                                                                logo={getTeamLogoUrl(pick.homeTeamId, pick.sport)}
+                                                                score={pick.homeScore}
+                                                                spread={pick.homeTeamSpread}
+                                                                gameCompleted={pick.gameCompleted}
+                                                                isPick={pick.teamPick === 'Home'}
+                                                                isMobile={isMobile}
+                                                                teamPickStatus={pick.teamPickStatus}
+                                                            />
+                                                        </Box>
+                                                    </Box>
+
+                                                    {/* Row 2: O/U left, Game Date right */}
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            gap: 1,
+                                                            mt: 0.5,
+                                                            flexWrap: 'wrap'
+                                                        }}
+                                                    >
+                                                        {/* Left side: O/U + Total Pick */}
+                                                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                            {pick.overPoints && (
+                                                                <Typography
+                                                                    variant="caption"
+                                                                    color="text.secondary"
+                                                                    sx={{ fontSize: '0.65rem', lineHeight: 1.2 }}
+                                                                >
+                                                                    O/U {pick.overPoints}
+                                                                </Typography>
+                                                            )}
+
+                                                            {pick.totalPick && pick.totalPickStatus && (
+                                                                <Chip
+                                                                    label={pick.totalPick}
+                                                                    size={isMobile ? "small" : "medium"}
+                                                                    variant={pick.gameCompleted ? "filled" : "outlined"}
+                                                                    sx={{
+                                                                        fontSize: isMobile ? '0.6rem' : '0.65rem',
+                                                                        fontWeight: 600,
+                                                                        height: isMobile ? 20 : 24,
+                                                                        bgcolor: pick.gameCompleted
+                                                                            ? pick.totalPickStatus === "Won"
+                                                                                ? "success.main"
+                                                                                : pick.totalPickStatus === "Lost"
+                                                                                    ? "error.main"
+                                                                                    : pick.totalPickStatus === "Push"
+                                                                                        ? "warning.main"
+                                                                                        : undefined
+                                                                            : undefined,
+                                                                        color: pick.gameCompleted ? "common.white" : undefined,
+                                                                        borderColor: pick.gameCompleted ? undefined : "text.secondary",
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        </Box>
+
+                                                        {/* Right side: Game date */}
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                            sx={{ fontSize: '0.65rem', lineHeight: 1.2 }}
+                                                        >
+                                                            {formatDate(pick.commenceTime, isMobile)}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </Grid>
+
+                                            {/* Right side (optional for desktop layout) */}
+                                            <Grid size={{ xs:12, md:4 }}>
+                                                {/* Empty on mobile; desktop can have additional info if needed */}
+                                            </Grid>
                                         </Grid>
-
-                                        <Grid size="auto">
-                                            <Typography variant="body2">
-                                                {formatDate(pick.commenceTime, isMobile)}
-                                            </Typography>
-                                        </Grid>
-
-                                        <Grid size="auto" sx={{textAlign: 'center'}}>
-                                            <Typography variant="body2" sx={{fontWeight: 'bold'}}>
-                                                {pick.awayScore} - {pick.homeScore}
-                                            </Typography>
-                                        </Grid>
-
-                                        <Grid size="auto" sx={{textAlign: 'right'}}>
-                                            <Chip
-                                                label={`${pick.pick} (${pick.pickStatus})`}
-                                                size="small"
-                                                {...chipProps}
-                                            />
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-                            );
-                        })}
-                    </CardContent>
+                                    </Box>
+                                );
+                            })}
+                        </CardContent>
+                    </Collapse>
                 </Card>
             ))}
 
@@ -228,9 +473,8 @@ const WeeklyPickemsPage = () => {
                     No records found for the selected week.
                 </Typography>
             )}
-        </div>
+        </Box>
     );
 };
 
-// TODO add a sombrero counter/animation and a perfect score counter (trophy Icon)
 export default WeeklyPickemsPage;

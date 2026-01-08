@@ -280,10 +280,14 @@ export interface WeeklyPickemDTO {
     awayTeamId: string;
     homeScore: string;
     awayScore: string;
+    gameCompleted: boolean;
     homeTeamSpread: number;
     overPoints: number;
-    pick: string;
-    pickStatus: string;
+    teamPick: string;
+    teamPickStatus: string;
+    totalPick: string;
+    totalPickStatus: string;
+
 }
 
 export interface WeeklyPickemCardDTO {
