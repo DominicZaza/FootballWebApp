@@ -1,5 +1,5 @@
 import {useZAppContext} from '../components/AppContextProvider.tsx';
-import {getTeamLogoUrl,   useRestApi} from '../api/RestInvocations.js';
+import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.js';
 import {ToggleButtonGroup, Tooltip, Typography} from "@mui/material";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
@@ -24,9 +24,6 @@ import {
     keyframes,
     MenuItem,
     Paper,
-    RadioGroup,
-    Radio,
-    FormControlLabel,
     Select,
     Table,
     TableBody,
@@ -43,37 +40,11 @@ import {zWebSocket} from '../hooks/useStompClient';
 import LoadingSpinner from "../components/LoadingSpinner.tsx";
 
 
-const glowPulse = keyframes`
-    0% {
-        text-shadow: 0 0 2px currentColor;
-    }
-    50% {
-        text-shadow: 0 0 8px currentColor;
-    }
-    100% {
-        text-shadow: 0 0 2px currentColor;
-    }
-`;
-
-const getGlowColor = (status) => {
-    switch (status) {
-        case "Win":
-            return "rgba(76, 175, 80, 1)";
-        case "Loss":
-            return "rgba(244, 67, 54, 1)";
-        case "Push":
-            return "rgba(255, 193, 7, 1)";
-        default:
-            return "rgba(120, 120, 120, 0.8)";
-    }
-};
-
 const TeamCellRenderer = ({
                               name, ext_id,
                               status,
                               streak,
                               record,
-                              highlightTeam,
                               onClickTeam,
                               homeTeamSpread,
                               sport
@@ -86,7 +57,6 @@ const TeamCellRenderer = ({
                 status === "Push" ? "rgba(255, 193, 7, 0.45)" :
                     "rgba(0,0,0,0.25)";
 
-    const glowColor = getGlowColor(status);
 
     return (
         <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
@@ -105,8 +75,6 @@ const TeamCellRenderer = ({
                     <Typography
                         variant="body2"
                         sx={{
-                            color: highlightTeam ? glowColor : 'inherit',
-                            animation: highlightTeam ? `${glowPulse} 1.3s ease-in-out infinite` : 'none',
                             cursor: onClickTeam ? 'pointer' : 'default',
                             // textDecoration: onClickTeam ? 'underline' : 'none'
                         }}
@@ -123,81 +91,8 @@ const TeamCellRenderer = ({
     );
 };
 
-interface OpponentCellRendererProps {
-    displayAtSign?: string
-}
-
-const OpponentCellRenderer = ({name, status, ext_id, streak, record, onClickTeam, displayAtSign, sport}) => {
-    const logoUrl = getTeamLogoUrl(ext_id, sport);
-
-    const dotColor =
-        status === "Win" ? "rgba(76, 175, 80, 0.35)" :
-            status === "Loss" ? "rgba(244, 67, 54, 0.35)" :
-                status === "Push" ? "rgba(255, 193, 7, 0.45)" :
-                    "rgba(0,0,0,0.25)";
-
-    const glowColor = getGlowColor(status);
-
-    return (
-        <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-            {displayAtSign}
-            {ext_id && <img loading="lazy" src={logoUrl} style={{width: 24, height: 24}}/>}
-            {name && (
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-                    <Typography
-                        variant="body2"
-                        sx={{
-                            cursor: onClickTeam ? 'pointer' : 'default',
-                        }}
-                        onClick={onClickTeam}
-                    >
-                        {name}
-                    </Typography>
-                </Box>
-            )}
-
-            {record && <Chip label={record} size="small"/>}
-            {streak && <Chip label={streak} size="small"/>}
-        </Box>
-    );
-};
-const ScoreCellRenderer = ({game, filterMode, selectedTeamId}) => {
-
+const ScoreCellRenderer = ({game}) => {
     if (!game.completed) return <></>;
-
-    const getSelectedTeamResult = () => {
-        if (!selectedTeamId) return null;
-
-        const selectedIsHome = game.home_team_id === selectedTeamId;
-        const selectedScore = selectedIsHome ? game.home_score : game.away_score;
-        const oppScore = selectedIsHome ? game.away_score : game.home_score;
-
-        if (selectedScore > oppScore) return "W";
-        if (selectedScore < oppScore) return "L";
-        return "P";
-    };
-
-    if (filterMode === "team" && selectedTeamId) {
-        const selectedIsHome = selectedTeamId === game.home_team_id;
-        const selectedScore = selectedIsHome ? game.home_score : game.away_score;
-        const opponentScore = selectedIsHome ? game.away_score : game.home_score;
-
-        const higher = Math.max(selectedScore, opponentScore);
-        const lower = Math.min(selectedScore, opponentScore);
-
-        const result = getSelectedTeamResult();
-
-        return (
-            <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                {result === "W" && <span style={{color: "green", fontWeight: 700}}>W</span>}
-                {result === "L" && <span style={{color: "red", fontWeight: 700}}>L</span>}
-                {result === "P" && <span style={{color: "gray", fontWeight: 700}}>P</span>}
-                <Typography variant="body2">{higher} - {lower}</Typography>
-            </Box>
-        );
-    }
-
-    // WEEK mode fallback
     return <Typography variant="body2">{game.away_score} - {game.home_score}</Typography>;
 };
 
@@ -232,11 +127,7 @@ const GameScoresPage = () => {
     const [playoffGamesRestCallReturnMessage, setPlayoffGamesRestCallReturnMessage] = useState('');
     const [updateGameTimesRestCallReturnMessage, setUpdateGameTimesRestCallReturnMessage] = useState('');
     const {notify} = useNotify();
-// Filtering mode: "week" or "team"
-    const [filterMode, setFilterMode] = useState<'week' | 'team'>('week');
-// When filtering by team:
-    const [teams, setTeams] = useState([]);
-    const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+
     const [selectedSport, setSelectedSport] = useState<string>('americanfootball_nfl');
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(currentSeason);
     const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
@@ -244,7 +135,6 @@ const GameScoresPage = () => {
 
     const {
         getGameScoresByWeekRestCall,
-        getGameScoresByTeamRestCall,
         getTeamsAndWeeksBySportAndSeasonRestCall,
         snapCompletedGameScoresRestCall,
         snapCompletedGameOddsRestCall,
@@ -400,7 +290,6 @@ const GameScoresPage = () => {
                     }
                     return prevWeek;
                 });
-                setTeams(data.teams);
                 setMaxAvailableWeek(data.maxWeekAvailable);
 
             })
@@ -415,42 +304,29 @@ const GameScoresPage = () => {
 // Clear table results whenever switching between team/week filters
     useEffect(() => {
         setGameScorePageDTOs([]);       // Clear table rows
-        //setSelectedTeamId(null); // Clear team selection
-    }, [filterMode, selectedSport]);
+    }, [selectedSport]);
 
     // fetch game scores
     useEffect(() => {
         if (selectedSeasonId === 0 || !selectedSport) return;
 
-        // TEAM mode guard
-        if (filterMode === 'team' && selectedTeamId == null) return;
 
         // WEEK mode guards
-        if (filterMode === 'week') {
-            if (maxAvailableWeek === null) return;             // ⛔ DO NOT FETCH YET
-            if (selectedWeek == null) return;
-            if (selectedWeek > maxAvailableWeek) return;        // ⛔ Prevent invalid fetch
-        }
+        if (maxAvailableWeek === null) return;             // ⛔ DO NOT FETCH YET
+        if (selectedWeek == null) return;
+        if (selectedWeek > maxAvailableWeek) return;        // ⛔ Prevent invalid fetch
 
         setLoading(true);
         setError(null);
 
         try {
-            if (filterMode === 'week') {
-                getGameScoresByWeekRestCall(selectedSport, selectedSeasonId, selectedWeek)
-                    .then(data => setGameScorePageDTOs(data.records))
-                    .catch(err => {
-                        setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
-                        setGameScorePageDTOs(null);
-                    });
-            } else {
-                getGameScoresByTeamRestCall(selectedSport, selectedSeasonId, selectedTeamId ?? -1)
-                    .then(data => setGameScorePageDTOs(data.records))
-                    .catch(err => {
-                        setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
-                        setGameScorePageDTOs(null);
-                    });
-            }
+            getGameScoresByWeekRestCall(selectedSport, selectedSeasonId, selectedWeek)
+                .then(data => setGameScorePageDTOs(data.records))
+                .catch(err => {
+                    setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
+                    setGameScorePageDTOs(null);
+                });
+
         } finally {
             setLoading(false);
         }
@@ -458,8 +334,6 @@ const GameScoresPage = () => {
         selectedSport,
         selectedSeasonId,
         selectedWeek,
-        selectedTeamId,
-        filterMode,
         maxAvailableWeek
     ]);
 
@@ -576,60 +450,6 @@ const GameScoresPage = () => {
         );
     }
 
-    const getOpponentInfo = (game, selectedTeamId) => {
-        const isSelectedHome = selectedTeamId === game.home_team_id;
-
-        const opponentIsHome = !isSelectedHome; // if selected team is away, opponent is home
-
-        const name = isSelectedHome
-            ? game.away_team_name
-            : game.home_team_name;
-
-        const team_ext_id = isSelectedHome
-            ? game.away_team_ext_id
-            : game.home_team_ext_id;
-
-        const wins = isSelectedHome ? game.away_wins : game.home_wins;
-        const losses = isSelectedHome ? game.away_losses : game.home_losses;
-        const ties = isSelectedHome ? game.away_ties : game.home_ties;
-
-        const streak = isSelectedHome
-            ? game.away_current_streak
-            : game.home_current_streak;
-
-        // Determine win/loss/push
-        let status = "incomplete";
-        if (game.completed) {
-            const opponentWon =
-                (isSelectedHome && game.away_score > game.home_score) ||
-                (!isSelectedHome && game.home_score > game.away_score);
-
-            const opponentLost =
-                (isSelectedHome && game.away_score < game.home_score) ||
-                (!isSelectedHome && game.home_score < game.away_score);
-
-            if (opponentWon) status = "Win";
-            else if (opponentLost) status = "Loss";
-            else status = "Push";
-        }
-
-        const opponentId = isSelectedHome
-            ? game.away_team_id
-            : game.home_team_id;
-
-        return {
-            opponentId,
-            name,
-            team_ext_id,
-            wins,
-            losses,
-            ties,
-            streak,
-            status,
-            opponentIsHome,
-        };
-    };
-
 
     // Generate week options
     const range = (start: number, end: number) =>
@@ -641,6 +461,12 @@ const GameScoresPage = () => {
         </MenuItem>
     ));
 
+
+    function showESPNTeamSchedule(team_abbrev: string) {
+        const espnSport = selectedSport === "americanfootball_nfl" ? "nfl" : "college-football";
+        const url = "https://www.espn.com/"+espnSport+"/team/schedule/_/name/" + team_abbrev;
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
 
     return (
         <div>
@@ -664,7 +490,6 @@ const GameScoresPage = () => {
                             label="Sport"
                             accessKey="t"
                             onChange={(e, value) => {
-                                setSelectedTeamId(null);
                                 setSelectedSport(e.target.value);
                             }}
                         >
@@ -695,56 +520,23 @@ const GameScoresPage = () => {
                             ))}
                         </Select>
                     </FormControl>
-                    {/* Filter Mode Selector between team vs week based */}
-                    <Box display="flex" flexDirection="column" sx={{ml: 1}}>
-                        <FormControl component="fieldset">
-                            <RadioGroup
-                                row
-                                value={filterMode}
-                                onChange={(e) => setFilterMode(e.target.value)}
-                            >
-                                <FormControlLabel value="week" control={<Radio size="small"/>} label="Week"/>
-                                <FormControlLabel value="team" control={<Radio size="small"/>} label="Team"/>
-                            </RadioGroup>
-                        </FormControl>
 
-
-                        {/* Week Selector */}
-                        {filterMode === 'week' && (
-                            <FormControl sx={{minWidth: 150}}>
-                                <InputLabel id="week-selector-label">
-                                    <u>W</u>eek
-                                </InputLabel>
-                                <Select
-                                    labelId="week-selector-label"
-                                    id="weekSelector"
-                                    value={selectedWeek || ''}
-                                    label="Week"
-                                    accessKey="W"
-                                    onChange={(e) => setSelectedWeek(e.target.value)}
-                                >
-                                    {weekOptions}
-                                </Select>
-                            </FormControl>
-                        )}
-                        {filterMode === 'team' && (
-                            <FormControl sx={{minWidth: 200}}>
-                                <InputLabel id="team-selector-label">Tea<u>m</u></InputLabel>
-                                <Select
-                                    labelId="team-selector-label"
-                                    id="teamSelector"
-                                    value={selectedTeamId || ''}
-                                    label="Team"
-                                    accessKey="m"
-                                    onChange={(e) => setSelectedTeamId(e.target.value)}
-                                >
-                                    {teams.map(team => (
-                                        <MenuItem key={team.id} value={team.id}>{team.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        )}
-                    </Box>
+                    {/* Week Selector */}
+                    <FormControl sx={{minWidth: 150}}>
+                        <InputLabel id="week-selector-label">
+                            <u>W</u>eek
+                        </InputLabel>
+                        <Select
+                            labelId="week-selector-label"
+                            id="weekSelector"
+                            value={selectedWeek || ''}
+                            label="Week"
+                            accessKey="W"
+                            onChange={(e) => setSelectedWeek(e.target.value)}
+                        >
+                            {weekOptions}
+                        </Select>
+                    </FormControl>
                     <ToggleButtonGroup
                         value={[
                             ...(showTeamRecords ? ['teamRecordsToggle'] : []),
@@ -898,9 +690,6 @@ const GameScoresPage = () => {
                 </Box>
 
 
-
-
-
                 {error && (
                     <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>
                         {error}
@@ -918,15 +707,8 @@ const GameScoresPage = () => {
                         <TableHead>
                             <TableRow>
                                 <TableCell></TableCell>
-                                {filterMode == 'week' && (<TableCell>Away</TableCell>)}
-                                {filterMode == 'team' && (<TableCell sx={{
-                                    maxWidth: 120,
-                                    width: 120,
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    padding: "4px 6px"
-                                }}>Opponent</TableCell>)}
-                                {filterMode == 'week' && (<TableCell>Home</TableCell>)}
+                                <TableCell>Away</TableCell>
+                                <TableCell>Home</TableCell>
                                 {showGameOdds && (<TableCell>O/U</TableCell>)}
 
                                 <TableCell>Score</TableCell>
@@ -963,73 +745,37 @@ const GameScoresPage = () => {
                                         >
                                             <TableCell>{index + 1}</TableCell>
 
-                                            {filterMode == 'week' && (
-                                                <TableCell>
-                                                    <TeamCellRenderer
-                                                        name={gameScorePageDTO.away_team_name}
-                                                        ext_id={gameScorePageDTO.away_team_ext_id}
-                                                        streak={!showTeamWinStreaks || !gameScorePageDTO.completed ? '' : gameScorePageDTO.away_current_streak}
-                                                        record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.away_wins}-${gameScorePageDTO.away_losses}-${gameScorePageDTO.away_ties}`}
-                                                        status={!gameScorePageDTO.completed ? "incomplete" : isAwayWinner(gameScorePageDTO) ? "Win" : isHomeWinner(gameScorePageDTO) ? "Loss" : "Push"}
-                                                        highlightTeam={filterMode === 'team' && selectedTeamId == gameScorePageDTO.away_team_id}
-                                                        onClickTeam={() => {
-                                                            setFilterMode('team');
-                                                            setSelectedTeamId(gameScorePageDTO.away_team_id);
-                                                        }}
-                                                        homeTeamSpread={null}  // this is the away team
-                                                        sport={selectedSport}
-                                                    />
-                                                </TableCell>)}
-                                            {filterMode === 'team' && (
-                                                <TableCell>
-                                                    {(() => {
-                                                        const opp = getOpponentInfo(gameScorePageDTO, selectedTeamId);
-                                                        const displayAtSign = opp.opponentIsHome ? `@` : ``;
 
-                                                        return (
-                                                            <OpponentCellRenderer
-                                                                name={opp.name}
-                                                                ext_id={opp.team_ext_id}
-                                                                displayAtSign={displayAtSign}
-                                                                record={
-                                                                    !showTeamRecords || !gameScorePageDTO.completed
-                                                                        ? ''
-                                                                        : `${opp.wins}-${opp.losses}-${opp.ties}`
-                                                                }
-                                                                streak={
-                                                                    !showTeamWinStreaks || !gameScorePageDTO.completed
-                                                                        ? ''
-                                                                        : opp.streak
-                                                                }
-                                                                status={opp.status}
-                                                                onClickTeam={() => {
-                                                                    setFilterMode('team');
-                                                                    setSelectedTeamId(opp.opponentId);
-                                                                }}
-                                                                sport={selectedSport}
-                                                            />
-                                                        );
-                                                    })()}
-                                                </TableCell>
-                                            )}
+                                            <TableCell>
+                                                <TeamCellRenderer
+                                                    name={gameScorePageDTO.away_team_name}
+                                                    ext_id={gameScorePageDTO.away_team_ext_id}
+                                                    streak={!showTeamWinStreaks || !gameScorePageDTO.completed ? '' : gameScorePageDTO.away_current_streak}
+                                                    record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.away_wins}-${gameScorePageDTO.away_losses}-${gameScorePageDTO.away_ties}`}
+                                                    status={!gameScorePageDTO.completed ? "incomplete" : isAwayWinner(gameScorePageDTO) ? "Win" : isHomeWinner(gameScorePageDTO) ? "Loss" : "Push"}
+                                                    onClickTeam={() => {
+                                                        showESPNTeamSchedule(gameScorePageDTO.away_team_abbreviation);
+                                                    }}
+                                                    homeTeamSpread={null}  // this is the away team
+                                                    sport={selectedSport}
+                                                />
+                                            </TableCell>
 
-                                            {filterMode == 'week' && (
-                                                <TableCell>
-                                                    <TeamCellRenderer
-                                                        name={gameScorePageDTO.home_team_name}
-                                                        ext_id={gameScorePageDTO.home_team_ext_id}
-                                                        streak={!showTeamWinStreaks || !gameScorePageDTO.completed ? '' : gameScorePageDTO.home_current_streak}
-                                                        record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.home_wins}-${gameScorePageDTO.home_losses}-${gameScorePageDTO.home_ties}`}
-                                                        status={!gameScorePageDTO.completed ? "incomplete" : isHomeWinner(gameScorePageDTO) ? "Win" : isAwayWinner(gameScorePageDTO) ? "Loss" : "Push"}
-                                                        highlightTeam={filterMode === 'team' && selectedTeamId == gameScorePageDTO.home_team_id}
-                                                        onClickTeam={() => {
-                                                            setFilterMode('team');
-                                                            setSelectedTeamId(gameScorePageDTO.home_team_id);
-                                                        }}
-                                                        homeTeamSpread={!showGameOdds || (homeSpread == null || homeSpread == '') ? null : `(${homeSpread})`}
-                                                        sport={selectedSport}
-                                                    />
-                                                </TableCell>)}
+
+                                            <TableCell>
+                                                <TeamCellRenderer
+                                                    name={gameScorePageDTO.home_team_name}
+                                                    ext_id={gameScorePageDTO.home_team_ext_id}
+                                                    streak={!showTeamWinStreaks || !gameScorePageDTO.completed ? '' : gameScorePageDTO.home_current_streak}
+                                                    record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.home_wins}-${gameScorePageDTO.home_losses}-${gameScorePageDTO.home_ties}`}
+                                                    status={!gameScorePageDTO.completed ? "incomplete" : isHomeWinner(gameScorePageDTO) ? "Win" : isAwayWinner(gameScorePageDTO) ? "Loss" : "Push"}
+                                                    onClickTeam={() => {
+                                                        showESPNTeamSchedule(gameScorePageDTO.home_team_abbreviation);
+                                                    }}
+                                                    homeTeamSpread={!showGameOdds || (homeSpread == null || homeSpread == '') ? null : `(${homeSpread})`}
+                                                    sport={selectedSport}
+                                                />
+                                            </TableCell>
                                             {showGameOdds ? (
                                                 <TableCell>
 
@@ -1041,11 +787,7 @@ const GameScoresPage = () => {
                                                 </TableCell>
                                             ) : null}
                                             <TableCell>
-                                                <ScoreCellRenderer
-                                                    game={gameScorePageDTO}
-                                                    filterMode={filterMode}
-                                                    selectedTeamId={selectedTeamId}
-                                                />
+                                                <ScoreCellRenderer game={gameScorePageDTO}/>
                                             </TableCell>
 
                                             {showGameDate && (
@@ -1064,7 +806,7 @@ const GameScoresPage = () => {
                                                     onClick={() =>
                                                         isAdmin &&
                                                         handleTogglePrimetime(
-                                                            gameScorePageDTO.game_id,gameScorePageDTO.primetime
+                                                            gameScorePageDTO.game_id, gameScorePageDTO.primetime
                                                         )
                                                     }
                                                     sx={{
@@ -1090,7 +832,7 @@ const GameScoresPage = () => {
                                                     onClick={() =>
                                                         isAdmin &&
                                                         handleToggleException(
-                                                            gameScorePageDTO.game_id,gameScorePageDTO.exception
+                                                            gameScorePageDTO.game_id, gameScorePageDTO.exception
                                                         )
                                                     }
                                                     sx={{

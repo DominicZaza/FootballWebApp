@@ -140,9 +140,6 @@ export const useRestApi = () => {
         return await makeRestCall(`/pickem/entry/${entryId}/season/${season}/period/${period}`);
     }
 
-    const getGameScoresByTeamRestCall = async (sport:string, season:string, team:string): Promise<GameScoresPageResponse> => {
-        return await makeRestCall(`/gamescores/sport/${sport}/season/${season}/team/${team}`);
-    }
     const getTeamsAndWeeksBySportAndSeasonRestCall = async (sport:string,season:string): Promise<TeamsForScorePageResponse> => {
         return await makeRestCall(`/gamescores/teams/sport/${sport}/season/${season}`);
     };
@@ -215,7 +212,6 @@ export const useRestApi = () => {
         saveTeamRankingsRestCall,
         getAllSeasonsRestCall,
         getGameScoresByWeekRestCall,
-        getGameScoresByTeamRestCall,
         getWebSocketEndpoint,
         snapCompletedGameScoresRestCall,
         snapCompletedGameOddsRestCall,
