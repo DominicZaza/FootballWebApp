@@ -151,6 +151,7 @@ export interface WeeklyPicksDTO {
 
 export interface GameScorePageDTO {
     game_id: number,
+    espn_game_id: number,
     home_team_id: number,
     home_team_ext_id: string,
     home_team_name: string,

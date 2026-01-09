@@ -76,7 +76,6 @@ const TeamCellRenderer = ({
                         variant="body2"
                         sx={{
                             cursor: onClickTeam ? 'pointer' : 'default',
-                            // textDecoration: onClickTeam ? 'underline' : 'none'
                         }}
                         onClick={onClickTeam}
                     >
@@ -91,11 +90,29 @@ const TeamCellRenderer = ({
     );
 };
 
-const ScoreCellRenderer = ({game}) => {
-    if (!game.completed) return <></>;
-    return <Typography variant="body2">{game.away_score} - {game.home_score}</Typography>;
-};
 
+
+function launchESPNTeamSchedule(selectedSport: string, team_abbrev: string,season:string) {
+    const espnSport = selectedSport === "americanfootball_nfl" ? "nfl" : "college-football";
+    const url = "https://www.espn.com/"+espnSport+"/team/schedule/_/name/" + team_abbrev +"/season/" + season;
+    window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function launchESPNGameRecap(selectedSport:string,espnGameId:string) {
+    const espnSport = selectedSport === "americanfootball_nfl" ? "nfl" : "college-football";
+    const url = "https://www.espn.com/"+espnSport+"/game/_/gameId/"+espnGameId;
+    window.open(url, "_blank", "noopener,noreferrer");
+}
+
+const ScoreCellRenderer = ({game,sport}) => {
+    if (!game.completed) return <></>;
+    return <Typography variant="body2"
+                       sx={{
+                           cursor: 'pointer',
+                       }}
+                       onClick={ () => launchESPNGameRecap(sport, game.espn_game_id)}
+    >{game.away_score} - {game.home_score}</Typography>;
+};
 
 const GameScoresPage = () => {
 
@@ -462,12 +479,6 @@ const GameScoresPage = () => {
     ));
 
 
-    function showESPNTeamSchedule(team_abbrev: string) {
-        const espnSport = selectedSport === "americanfootball_nfl" ? "nfl" : "college-football";
-        const url = "https://www.espn.com/"+espnSport+"/team/schedule/_/name/" + team_abbrev;
-        window.open(url, "_blank", "noopener,noreferrer");
-    }
-
     return (
         <div>
             <Box sx={{p: 3}}>
@@ -754,7 +765,7 @@ const GameScoresPage = () => {
                                                     record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.away_wins}-${gameScorePageDTO.away_losses}-${gameScorePageDTO.away_ties}`}
                                                     status={!gameScorePageDTO.completed ? "incomplete" : isAwayWinner(gameScorePageDTO) ? "Win" : isHomeWinner(gameScorePageDTO) ? "Loss" : "Push"}
                                                     onClickTeam={() => {
-                                                        showESPNTeamSchedule(gameScorePageDTO.away_team_abbreviation);
+                                                        launchESPNTeamSchedule(selectedSport, gameScorePageDTO.away_team_abbreviation,selectedSeasonId);
                                                     }}
                                                     homeTeamSpread={null}  // this is the away team
                                                     sport={selectedSport}
@@ -770,7 +781,7 @@ const GameScoresPage = () => {
                                                     record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.home_wins}-${gameScorePageDTO.home_losses}-${gameScorePageDTO.home_ties}`}
                                                     status={!gameScorePageDTO.completed ? "incomplete" : isHomeWinner(gameScorePageDTO) ? "Win" : isAwayWinner(gameScorePageDTO) ? "Loss" : "Push"}
                                                     onClickTeam={() => {
-                                                        showESPNTeamSchedule(gameScorePageDTO.home_team_abbreviation);
+                                                        launchESPNTeamSchedule(selectedSport,gameScorePageDTO.home_team_abbreviation,selectedSeasonId);
                                                     }}
                                                     homeTeamSpread={!showGameOdds || (homeSpread == null || homeSpread == '') ? null : `(${homeSpread})`}
                                                     sport={selectedSport}
@@ -787,7 +798,7 @@ const GameScoresPage = () => {
                                                 </TableCell>
                                             ) : null}
                                             <TableCell>
-                                                <ScoreCellRenderer game={gameScorePageDTO}/>
+                                                <ScoreCellRenderer game={gameScorePageDTO} sport={selectedSport}/>
                                             </TableCell>
 
                                             {showGameDate && (
