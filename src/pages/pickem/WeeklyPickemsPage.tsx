@@ -34,6 +34,8 @@ const WeeklyPickemsPage = () => {
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(currentSeason);
     const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
     const [allCollapsed, setAllCollapsed] = useState<boolean>(false);
+    const [hideCompletedGamesSwitch, setHideCompletedGamesSwitch] = useState<boolean>(false);
+
 
     const {
         getWeeklyPickemByPoolInstanceAndPeriodRestCall,
@@ -272,6 +274,23 @@ const WeeklyPickemsPage = () => {
                     </Select>
                 </FormControl>
 
+                <Tooltip title={!hideCompletedGamesSwitch ? 'Hide completed games' : 'Display completed games'}>
+                    {/* Push switch to extreme right */}
+                    <Box sx={{ml: 'auto'}}>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={!hideCompletedGamesSwitch}
+                                    onChange={() => {
+                                        setHideCompletedGamesSwitch(!hideCompletedGamesSwitch);
+                                    }}
+                                />
+                            }
+                            label={isMobile ? '' : hideCompletedGamesSwitch ? 'Display Completed Games' : 'Hide Completed Games'}
+                        />
+                    </Box>
+                </Tooltip>
+
                 <Tooltip title={allCollapsed ? 'Expand all entries' : 'Collapse all entries'}>
                     {/* Push switch to extreme right */}
                     <Box sx={{ml: 'auto'}}>
@@ -293,7 +312,7 @@ const WeeklyPickemsPage = () => {
                                     }}
                                 />
                             }
-                            label={isMobile ? '' : allCollapsed ? 'Expand All' : 'Collapse All'}
+                            label={isMobile ? '' : allCollapsed ? 'Expand All Cards' : 'Collapse All Cards'}
                         />
                     </Box>
                 </Tooltip>
@@ -339,7 +358,9 @@ const WeeklyPickemsPage = () => {
                     </Box>
                     <Collapse in={!collapsedCards[record.entry_id]} timeout="auto" unmountOnExit>
                         <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                            {record.weeklyPickemDTOList.map((pick, index) => {
+                                {record.weeklyPickemDTOList
+                                    .filter(pick => !hideCompletedGamesSwitch || !pick.gameCompleted)
+                                    .map((pick, index, filteredPicks) => {
 
                                 return (
                                     <Box
