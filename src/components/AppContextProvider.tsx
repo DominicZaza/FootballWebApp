@@ -18,7 +18,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [accountBalance, setAccountBalance ] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
-
+    const [adminMode, setAdminMode] = useState<boolean>(false);
 
 
     /*  mobile device check */
@@ -48,6 +48,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setAccountBalance,
                 isAdmin,
                 setIsAdmin,
+                adminMode,
+                setAdminMode,
                 isMobile,
                 seasons,
                 setSeasons,

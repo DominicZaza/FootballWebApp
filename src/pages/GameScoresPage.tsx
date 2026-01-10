@@ -124,7 +124,7 @@ const GameScoresPage = () => {
     const [snappingPlayoffGames, setSnappingPlayoffGames] = useState<boolean>(false);
     const [snappingGameDateTimes, setSnappingGameDateTimes] = useState<boolean>(false);
     const [rollingWeek, setRollingWeek] = useState<boolean>(false);
-    const {isAdmin, isMobile, currentWeek, currentSeason, seasons} = useZAppContext();
+    const {adminMode, isMobile, currentWeek, currentSeason, seasons} = useZAppContext();
     //toggle states
     const [showTeamRecords, setShowTeamRecords] = useState<boolean>(false);
     const [showTeamWinStreaks, setShowTeamWinStreaks] = useState<boolean>(false);
@@ -165,7 +165,7 @@ const GameScoresPage = () => {
 
 
     const handleTogglePrimetime = async (gameId: number, currentValue: boolean) => {
-        if (!isAdmin) return;
+        if (!adminMode) return;
 
         try {
             // optimistic UI update
@@ -198,7 +198,7 @@ const GameScoresPage = () => {
         }
     };
     const handleToggleException = async (gameId: number, currentValue: boolean) => {
-        if (!isAdmin) return;
+        if (!adminMode) return;
 
         try {
             // optimistic UI update
@@ -562,7 +562,7 @@ const GameScoresPage = () => {
                         sx={{
                             height: 56,
                             borderRadius: 2,
-                            ml: isAdmin ? 1 : 0,
+                            ml: adminMode ? 1 : 0,
                             boxShadow: 1,
                         }}
                     >
@@ -586,7 +586,7 @@ const GameScoresPage = () => {
                 </Box>
                 <Box>
                     {/* Snap Game Scores Button - Admin Only */}
-                    {isAdmin && (
+                    {adminMode && (
                         <Tooltip
                             title={snapScoresMessage.quotaUsageStatus}
                             placement="top"
@@ -608,7 +608,7 @@ const GameScoresPage = () => {
                         </Tooltip>
                     )}
                     {/* Snap Game Odds Button - Admin Only */}
-                    {isAdmin && (
+                    {adminMode && (
                         <Tooltip
                             title={snapOddsMessage.quotaUsageStatus}
                             placement="top"
@@ -630,7 +630,7 @@ const GameScoresPage = () => {
                         </Tooltip>
                     )}
                     {/* Roll Week Button - Admin Only */}
-                    {isAdmin && (
+                    {adminMode && (
                         <Tooltip
                             title={rollingWeekReturnMessage.status}
                             placement="top"
@@ -652,7 +652,7 @@ const GameScoresPage = () => {
                         </Tooltip>
                     )}
                     {/* Create Playoff Games - Admin Only */}
-                    {isAdmin && (
+                    {adminMode && (
                         <Tooltip
                             title={playoffGamesRestCallReturnMessage.status}
                             placement="top"
@@ -675,7 +675,7 @@ const GameScoresPage = () => {
                         </Tooltip>
                     )}
                     {/* Update Game Date Times - Admin Only */}
-                    {isAdmin && (
+                    {adminMode && (
                         <Tooltip
                             title={updateGameTimesRestCallReturnMessage.status}
                             placement="top"
@@ -732,10 +732,10 @@ const GameScoresPage = () => {
                                         />
                                     </TableCell>
                                 )}
-                                {selectedSport == 'americanfootball_nfl' && isAdmin && (
+                                {selectedSport == 'americanfootball_nfl' && adminMode && (
                                     <TableCell>Primetime</TableCell>
                                 )}
-                                {selectedSport == 'americanfootball_nfl' && isAdmin && (
+                                {selectedSport == 'americanfootball_nfl' && adminMode && (
                                     <TableCell>Exception</TableCell>
                                 )}
 
@@ -812,24 +812,24 @@ const GameScoresPage = () => {
                                                                                   awayRank={gameScorePageDTO.away_rank_preseason}/>
                                                 </TableCell>
                                             )}
-                                            {selectedSport === 'americanfootball_nfl' && isAdmin && (
+                                            {selectedSport === 'americanfootball_nfl' && adminMode && (
                                                 <TableCell
                                                     onClick={() =>
-                                                        isAdmin &&
+                                                        adminMode &&
                                                         handleTogglePrimetime(
                                                             gameScorePageDTO.game_id, gameScorePageDTO.primetime
                                                         )
                                                     }
                                                     sx={{
-                                                        cursor: isAdmin ? 'pointer' : 'default',
+                                                        cursor: adminMode ? 'pointer' : 'default',
                                                         fontWeight: gameScorePageDTO.primetime ? 600 : 400,
                                                         color: gameScorePageDTO.primetime ? 'primary.main' : 'text.secondary',
-                                                        '&:hover': isAdmin
+                                                        '&:hover': adminMode
                                                             ? {backgroundColor: 'action.hover'}
                                                             : undefined
                                                     }}
                                                 >
-                                                    <Tooltip title={isAdmin ? "Click to toggle primetime" : ""}>
+                                                    <Tooltip title={adminMode ? "Click to toggle primetime" : ""}>
                                                      <span>
                                                          {gameScorePageDTO.primetime ?
                                                              (<StarIcon color="warning"/>) :
@@ -838,24 +838,24 @@ const GameScoresPage = () => {
                                                     </Tooltip>
                                                 </TableCell>
                                             )}
-                                            {selectedSport === 'americanfootball_nfl' && isAdmin && (
+                                            {selectedSport === 'americanfootball_nfl' && adminMode && (
                                                 <TableCell
                                                     onClick={() =>
-                                                        isAdmin &&
+                                                        adminMode &&
                                                         handleToggleException(
                                                             gameScorePageDTO.game_id, gameScorePageDTO.exception
                                                         )
                                                     }
                                                     sx={{
-                                                        cursor: isAdmin ? 'pointer' : 'default',
+                                                        cursor: adminMode ? 'pointer' : 'default',
                                                         fontWeight: gameScorePageDTO.exception ? 600 : 400,
                                                         color: gameScorePageDTO.exception ? 'primary.main' : 'text.secondary',
-                                                        '&:hover': isAdmin
+                                                        '&:hover': adminMode
                                                             ? {backgroundColor: 'action.hover'}
                                                             : undefined
                                                     }}
                                                 >
-                                                    <Tooltip title={isAdmin ? "Click to toggle exception" : ""}>
+                                                    <Tooltip title={adminMode ? "Click to toggle exception" : ""}>
                                                      <span>
                                                          {gameScorePageDTO.exception ?
                                                              (<StarIcon color="warning"/>) :

@@ -63,6 +63,7 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
         setAccountBalance,
         accountBalance,
         isAdmin, setIsAdmin,
+        adminMode, setAdminMode,
         setSeasons, setAuthUser
     } = useZAppContext();
 
@@ -159,6 +160,12 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
         handleMenuClose();
     };
 
+    const handleToggleAdminMode = () => {
+        setAdminMode(!adminMode);
+        handleMenuClose();
+    };
+
+
 
     const handleEntryChange = (event: SelectChangeEvent<string>) => {
         const entryId = event.target.value;
@@ -192,7 +199,7 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
             id: 'adminTeamRankings',
             label: 'Team Rankings (Admin Only)',
             element: <TeamRankingsAdminPage/>,
-            isVisible: () => isAdmin,
+            isVisible: () => adminMode,
         };
 
         const sweepstakesTabs = [
@@ -218,7 +225,7 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
         const rawTabs = byPoolTypeId[poolTypeId ?? 1] ?? sweepstakesTabs;
 
         return rawTabs.filter(t => (t.isVisible ? t.isVisible() : true));
-    }, [poolTypeId, isAdmin]);
+    }, [poolTypeId, adminMode]);
 
     //load/restore user prefs from browser
     useEffect(() => {
@@ -383,6 +390,11 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
                             <MenuItemComponent onClick={handleChangePassword}>
                                 Change Password
                             </MenuItemComponent>
+                            {isAdmin && (
+                                <MenuItemComponent onClick={handleToggleAdminMode}>
+                                    {adminMode ? 'Turn Admin Mode Off' : 'Turn Admin Mode On'}
+                                </MenuItemComponent>
+                            )}
                             <MenuItemComponent onClick={handleLogout}>Logout</MenuItemComponent>
                         </Menu>
                     </Box>
