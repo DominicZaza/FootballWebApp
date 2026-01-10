@@ -331,8 +331,8 @@ const MyPickemsPage = () => {
         );
     });
 
-    // Chip styling based on pick status
-    const getTeamChipStyles = (teamStatus: string,totalStatus: string) => {
+    // Chip styling based on pick/team status
+    const getStatusChipStyle = (teamStatus: string,totalStatus: string) => {
         const status = teamStatus === null ? totalStatus : teamStatus;
         switch (status) {
             case "Won":
@@ -450,7 +450,7 @@ const MyPickemsPage = () => {
 
     const PickemRow = React.memo(({myPickem, index}) => {
             const homeSpread = myPickem.home_team_spread;
-            const chipProps = getTeamChipStyles(myPickem.teampickstatus,myPickem.totalpickstatus);
+            const chipProps = getStatusChipStyle(myPickem.teampickstatus,myPickem.totalpickstatus);
             const outlineColor = getTeamPickOutlineColor(myPickem);
             const outlineStyle = myPickem.teampickstatus === "Pending" ? "dashed" : "solid";
             const canPick = pickemEntryControl?.pickAllowed && homeSpread != null;
