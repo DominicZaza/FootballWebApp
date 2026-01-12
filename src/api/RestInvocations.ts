@@ -122,8 +122,8 @@ export const useRestApi = () => {
         await makeRestCall(`/teamranking/`, 'POST', body);
     };
 
-    const snapCompletedGameScoresRestCall = async (sport:string, season:string,week:string): Promise<string> => {
-        return await makeRestCall(`/games/snapCompletedGames/sport/${sport}/season/${season}/week/${week}`, 'PUT');
+    const snapCompletedGameScoresRestCall = async ( season:number,week:string): Promise<string> => {
+        return await makeRestCall(`/games/snapCompletedGames/season/${season}/week/${week}`, 'PUT');
     };
 
     const snapCompletedGameOddsRestCall = async (season:string,week:string): Promise<string> => {
@@ -133,15 +133,15 @@ export const useRestApi = () => {
     const getAllSeasonsRestCall = async (): Promise<SeasonDTO[]> => {
         return await makeRestCall(`/season`);
     };
-    const getGameScoresByWeekRestCall = async (sport:string, season:number, week:number): Promise<GameScoresPageResponse> => {
-        return await makeRestCall(`/gamescores/sport/${sport}/season/${season}/week/${week}`);
+    const getGameScoresByWeekRestCall = async ( season:number, week:number): Promise<GameScoresPageResponse> => {
+        return await makeRestCall(`/gamescores/season/${season}/week/${week}`);
     }
     const getMyPickemsByEntrySeasonPeriod = async ( entryId: number, season:number, period:number): Promise<MyPickemsPageDTO> => {
         return await makeRestCall(`/pickem/entry/${entryId}/season/${season}/period/${period}`);
     }
 
-    const getTeamsAndWeeksBySportAndSeasonRestCall = async (sport:string,season:string): Promise<TeamsForScorePageResponse> => {
-        return await makeRestCall(`/gamescores/teams/sport/${sport}/season/${season}`);
+    const getMaxWeekSeasonRestCall = async (season:string): Promise<number> => {
+        return await makeRestCall(`/gamescores/maxWeek/season/${season}`)
     };
 
     const getGameRanksByGamesRestCall = async (listOfGames: number[]): Promise<GameRankDTO[]> => {
@@ -223,7 +223,7 @@ export const useRestApi = () => {
         rollWeekRestCall,
         getMyGamesPageRestCall,
         submitPickRestCall,
-        getTeamsAndWeeksBySportAndSeasonRestCall,
+        getMaxWeekSeasonRestCall,
         createPlayoffGamesForSportRestCall,
         getWeeklyPickemByPoolInstanceAndPeriodRestCall,
         getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall,

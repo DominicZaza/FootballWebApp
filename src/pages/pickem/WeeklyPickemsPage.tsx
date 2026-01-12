@@ -33,8 +33,8 @@ const WeeklyPickemsPage = () => {
     const [weeklyPickemRecords, setWeeklyPickemRecords] = useState<WeeklyPickemCardDTO[]>([]);
     const [periods, setPeriods] = useState<SeasonWeekDTO[]>([]);
     const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
-    const [allCollapsed, setAllCollapsed] = useState<boolean>(false);
-    const [hideCompletedGamesSwitch, setHideCompletedGamesSwitch] = useState<boolean>(false);
+    const [collapseAllCardsSwitch, setCollapseAllCardsSwitch] = useState<boolean>(false);
+    const [hideCompletedGames, setHideCompletedGames] = useState<boolean>(true);
 
 
     const {
@@ -62,7 +62,7 @@ const WeeklyPickemsPage = () => {
             record => collapsedCards[record.entry_id]
         );
 
-        setAllCollapsed(allAreCollapsed);
+        setCollapseAllCardsSwitch(allAreCollapsed);
     }, [collapsedCards, weeklyPickemRecords]);
 
 
@@ -94,6 +94,51 @@ const WeeklyPickemsPage = () => {
             });
 
     }, [selectedEntry?.poolTypeId]);
+
+    /* ------------------------------ Effects ------------------------------------ */
+
+
+    useEffect(() => {
+        if (!weeklyPickemRecords.length) return;
+
+        const allCollapsed = weeklyPickemRecords.every(
+            record => collapsedCards[record.entry_id]
+        );
+
+        setCollapseAllCardsSwitch(allCollapsed);
+
+    }, [collapsedCards, weeklyPickemRecords]);
+
+    useEffect(() => {
+        const saved = localStorage.getItem("WeeklyPickemsTogglePrefs");
+        if (!saved || !weeklyPickemRecords.length) return;
+
+        try {
+            const prefs = JSON.parse(saved);
+
+            if (prefs.collapsedCards) {
+                setCollapsedCards(prefs.collapsedCards);
+            }
+
+            if (typeof prefs.hideCompletedGames === "boolean") {
+                setHideCompletedGames(prefs.hideCompletedGames);
+            }
+        } catch {
+            // ignore corrupted storage
+        }
+    }, [weeklyPickemRecords]);
+
+    useEffect(() => {
+        if (!weeklyPickemRecords.length) return;
+
+        localStorage.setItem(
+            "WeeklyPickemsTogglePrefs",
+            JSON.stringify({
+                collapsedCards,
+                hideCompletedGames
+            })
+        );
+    }, [collapsedCards, hideCompletedGames, weeklyPickemRecords]);
 
     const formatWinPct = (winPct: number) => {
         if (winPct == null || isNaN(winPct)) return "-";
@@ -269,24 +314,24 @@ const WeeklyPickemsPage = () => {
                     </Select>
                 </FormControl>
 
-                <Tooltip title={!hideCompletedGamesSwitch ? 'Hide completed games' : 'Display completed games'}>
+                <Tooltip title={!hideCompletedGames ? 'Hide completed games' : 'Display completed games'}>
                     {/* Push switch to extreme right */}
                     <Box sx={{ml: 'auto'}}>
                         <FormControlLabel
                             control={
                                 <Switch
-                                    checked={!hideCompletedGamesSwitch}
+                                    checked={!hideCompletedGames}
                                     onChange={() => {
-                                        setHideCompletedGamesSwitch(!hideCompletedGamesSwitch);
+                                        setHideCompletedGames(!hideCompletedGames);
                                     }}
                                 />
                             }
-                            label={isMobile ? '' : hideCompletedGamesSwitch ? 'Display Completed Games' : 'Hide Completed Games'}
+                            label={isMobile ? '' : hideCompletedGames ? 'Display Completed Games' : 'Hide Completed Games'}
                         />
                     </Box>
                 </Tooltip>
 
-                <Tooltip title={allCollapsed ? 'Expand all entries' : 'Collapse all entries'}>
+                <Tooltip title={collapseAllCardsSwitch ? 'Expand all entries' : 'Collapse all entries'}>
                     {/* Push switch to extreme right */}
                     <Box sx={{ml: 'auto'}}>
 
@@ -294,20 +339,20 @@ const WeeklyPickemsPage = () => {
                         <FormControlLabel
                             control={
                                 <Switch
-                                    checked={!allCollapsed}
+                                    checked={!collapseAllCardsSwitch}
                                     onChange={() => {
-                                        const nextCollapsed = allCollapsed;
+                                        const collapse = !collapseAllCardsSwitch;
 
                                         const newState: Record<number, boolean> = {};
                                         weeklyPickemRecords.forEach(record => {
-                                            newState[record.entry_id] = !nextCollapsed;
+                                            newState[record.entry_id] = collapse;
                                         });
 
                                         setCollapsedCards(newState);
                                     }}
                                 />
                             }
-                            label={isMobile ? '' : allCollapsed ? 'Expand All Cards' : 'Collapse All Cards'}
+                            label={isMobile ? '' : collapseAllCardsSwitch ? 'Expand All Cards' : 'Collapse All Cards'}
                         />
                     </Box>
                 </Tooltip>
@@ -325,36 +370,90 @@ const WeeklyPickemsPage = () => {
                         onClick={() => toggleCard(record.entry_id)}
                         sx={{
                             bgcolor: 'action.hover',
-                            p: 1.5,
+                            px: 1.5,
+                            py: isMobile ? 0.1 : 0.5, // 👈 shrink top/bottom padding on mobile
                             borderBottom: '1px solid text.primary',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                        <Typography variant="subtitle2" sx={{fontWeight: 700, color: 'text.secondary'}}>
-                            {record.entry_name}
-                        </Typography>
-                        <Box sx={{display: 'flex', gap: 2}}>
-                            <Typography variant="caption" sx={{fontWeight: 600}}>
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: isMobile
+                                    ? '1fr 32px'
+                                    : '1fr 110px 150px 32px',
+                                gridTemplateRows: isMobile ? 'auto auto' : 'auto',
+                                columnGap: 8,
+                                rowGap: 0,
+                                alignItems: 'center',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {/* Entry Name */}
+                            <Typography
+                                variant="subtitle2"
+                                sx={{
+                                    gridColumn: isMobile ? '1 / 2' : 'auto',
+                                    fontWeight: 700,
+                                    color: 'text.secondary',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                {record.entry_name}
+                            </Typography>
+
+                            {/* WEEK */}
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    gridColumn: isMobile ? '1 / 2' : 'auto',
+                                    gridRow: isMobile ? 2 : 'auto',
+                                    fontWeight: 600,
+                                    textAlign: isMobile ? 'left' : 'right',
+                                }}
+                            >
                                 WEEK: {record.week_wins}-{record.week_losses}-{record.week_pushes}
                             </Typography>
-                            <Typography variant="caption" sx={{fontWeight: 600, color: 'text.secondary'}}>
-                                TOTAL: {record.total_wins}-{record.total_losses} ({formatWinPct(record.total_win_pct)})
-                            </Typography>
-                        </Box>
-                        <ExpandMoreIcon
-                            sx={{
-                                transform: collapsedCards[record.entry_id] ? 'rotate(0deg)' : 'rotate(180deg)',
-                                transition: 'transform 0.2s',
-                                color: 'text.secondary'
-                            }}
-                        />
 
+                            {/* TOTAL */}
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    gridColumn: isMobile ? '1 / 2' : 'auto',
+                                    gridRow: isMobile ? 2 : 'auto',
+                                    fontWeight: 600,
+                                    color: 'text.secondary',
+                                    textAlign: isMobile ? 'right' : 'right',
+                                    justifySelf: isMobile ? 'end' : 'auto',
+                                }}
+                            >
+                                TOTAL: {record.total_wins}-{record.total_losses}-{record.total_pushes} ({formatWinPct(record.total_win_pct)})
+                            </Typography>
+
+                            {/* Expand Icon */}
+                            <Box
+                                sx={{
+                                    gridColumn: isMobile ? '2 / 3' : 'auto',
+                                    gridRow: isMobile ? 1 : 'auto',
+                                    textAlign: 'right',
+                                }}
+                            >
+                                <ExpandMoreIcon
+                                    sx={{
+                                        transform: collapsedCards[record.entry_id]
+                                            ? 'rotate(0deg)'
+                                            : 'rotate(180deg)',
+                                        transition: 'transform 0.2s',
+                                        color: 'text.secondary',
+                                    }}
+                                />
+                            </Box>
+                        </Box>
                     </Box>
                     <Collapse in={!collapsedCards[record.entry_id]} timeout="auto" unmountOnExit>
                         <CardContent sx={{p: 0, '&:last-child': {pb: 0}}}>
                             {record.weeklyPickemDTOList
-                                .filter(pick => !hideCompletedGamesSwitch || !pick.gameCompleted)
+                                .filter(pick => !hideCompletedGames || !pick.gameCompleted)
                                 .map((pick, index, filteredPicks) => {
 
                                     return (
@@ -478,24 +577,58 @@ const WeeklyPickemsPage = () => {
                                                     </Box>
                                                 </Grid>
 
-                                                {/* Right side: Status Icon */}
-                                                <Grid size={{xs: 2, md: 4}} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                                    {(() => {
-                                                        const status = pick.teamPickStatus || pick.totalPickStatus;
-                                                        const iconSize = isMobile ? 32 : 48;
+                                                {/* Right side: Status Icons */}
+                                                <Grid
+                                                    size={{ xs: 2, md: 4 }}
+                                                    sx={{
+                                                        display: 'flex',
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            gap: isMobile ? 0.5 : 1,
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        {/* Team Pick Status */}
+                                                        {(() => {
+                                                            const status = pick.teamPickStatus;
+                                                            const iconSize = isMobile ? 24 : 36;
 
-                                                        if (status === "Won") {
-                                                            return <CheckCircleIcon sx={{ color: 'success.main', fontSize: iconSize }} />;
-                                                        }
-                                                        if (status === "Lost") {
-                                                            return <CancelIcon sx={{ color: 'error.main', fontSize: iconSize }} />;
-                                                        }
-                                                        if (status === "Push") {
-                                                            return <CircleIcon sx={{ color: 'warning.main', fontSize: isMobile ? 16 : 24 }} />;
-                                                        }
-                                                        return null;
-                                                    })()}
+                                                            if (status === "Won") {
+                                                                return <CheckCircleIcon sx={{ color: 'success.main', fontSize: iconSize }} />;
+                                                            }
+                                                            if (status === "Lost") {
+                                                                return <CancelIcon sx={{ color: 'error.main', fontSize: iconSize }} />;
+                                                            }
+                                                            if (status === "Push") {
+                                                                return <CircleIcon sx={{ color: 'warning.main', fontSize: isMobile ? 14 : 20 }} />;
+                                                            }
+                                                            return null;
+                                                        })()}
+
+                                                        {/* Total Pick Status */}
+                                                        {(() => {
+                                                            const status = pick.totalPickStatus;
+                                                            const iconSize = isMobile ? 24 : 36;
+
+                                                            if (status === "Won") {
+                                                                return <CheckCircleIcon sx={{ color: 'success.main', fontSize: iconSize }} />;
+                                                            }
+                                                            if (status === "Lost") {
+                                                                return <CancelIcon sx={{ color: 'error.main', fontSize: iconSize }} />;
+                                                            }
+                                                            if (status === "Push") {
+                                                                return <CircleIcon sx={{ color: 'warning.main', fontSize: isMobile ? 14 : 20 }} />;
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                    </Box>
                                                 </Grid>
+
                                             </Grid>
                                         </Box>
                                     );

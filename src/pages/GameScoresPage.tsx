@@ -21,7 +21,6 @@ import {
     CircularProgress,
     FormControl,
     InputLabel,
-    keyframes,
     MenuItem,
     Paper,
     Select,
@@ -33,7 +32,7 @@ import {
     TableRow
 } from "@mui/material";
 import SportsFootballIcon from "@mui/icons-material/SportsFootball";
-import React, {useCallback, useEffect, useState} from "react";
+import React, {useCallback, useEffect, useMemo, useState} from "react";
 import type {GameScoreSavedEvent} from "../types/ZEvents";
 import type {GameScorePageDTO} from "../types/ZTypes";
 import {zWebSocket} from '../hooks/useStompClient';
@@ -91,26 +90,25 @@ const TeamCellRenderer = ({
 };
 
 
-
-function launchESPNTeamSchedule(selectedSport: string, team_abbrev: string,season:string) {
+function launchESPNTeamSchedule(selectedSport: string, team_abbrev: string, season: string) {
     const espnSport = selectedSport === "americanfootball_nfl" ? "nfl" : "college-football";
-    const url = "https://www.espn.com/"+espnSport+"/team/schedule/_/name/" + team_abbrev +"/season/" + season;
+    const url = "https://www.espn.com/" + espnSport + "/team/schedule/_/name/" + team_abbrev + "/season/" + season;
     window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function launchESPNGameRecap(selectedSport:string,espnGameId:string) {
+function launchESPNGameRecap(selectedSport: string, espnGameId: string) {
     const espnSport = selectedSport === "americanfootball_nfl" ? "nfl" : "college-football";
-    const url = "https://www.espn.com/"+espnSport+"/game/_/gameId/"+espnGameId;
+    const url = "https://www.espn.com/" + espnSport + "/game/_/gameId/" + espnGameId;
     window.open(url, "_blank", "noopener,noreferrer");
 }
 
-const ScoreCellRenderer = ({game,sport}) => {
+const ScoreCellRenderer = ({game}) => {
     if (!game.completed) return <></>;
     return <Typography variant="body2"
                        sx={{
                            cursor: 'pointer',
                        }}
-                       onClick={ () => launchESPNGameRecap(sport, game.espn_game_id)}
+                       onClick={() => launchESPNGameRecap(game.sport, game.espn_game_id)}
     >{game.away_score} - {game.home_score}</Typography>;
 };
 
@@ -118,7 +116,7 @@ const GameScoresPage = () => {
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState(null);
-    const [gameScorePageDTOs, setGameScorePageDTOs] = useState<GameScorePageDTO[]>([]);
+    const [gameScorePageDTOs, setGameScorePageDTOs] = useState<GameScorePageDTO[] >([]);
     const [snappingScores, setSnappingScores] = useState<boolean>(false);
     const [snappingOdds, setSnappingOdds] = useState<boolean>(false);
     const [snappingPlayoffGames, setSnappingPlayoffGames] = useState<boolean>(false);
@@ -145,14 +143,16 @@ const GameScoresPage = () => {
     const [updateGameTimesRestCallReturnMessage, setUpdateGameTimesRestCallReturnMessage] = useState('');
     const {notify} = useNotify();
 
-    const [selectedSport, setSelectedSport] = useState<string>('americanfootball_nfl');
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(currentSeason);
     const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
     const [maxAvailableWeek, setMaxAvailableWeek] = useState<number>(null);
+    const [showAllNFLGames, setShowAllNFLGames] = useState<boolean>(true);
+    const [showAllNCAAFGames, setShowAllNCAAFGames] = useState<boolean>(true);
+    const [showAllPrimetimeGames, setShowAllPrimetimeGames] = useState<boolean>(true);
 
     const {
         getGameScoresByWeekRestCall,
-        getTeamsAndWeeksBySportAndSeasonRestCall,
+        getMaxWeekSeasonRestCall,
         snapCompletedGameScoresRestCall,
         snapCompletedGameOddsRestCall,
         rollWeekRestCall,
@@ -164,8 +164,9 @@ const GameScoresPage = () => {
     const {useStompSubscription} = zWebSocket();
 
 
-    const handleTogglePrimetime = async (gameId: number, currentValue: boolean) => {
+    const handleTogglePrimetime = async (sport: string,gameId: number, currentValue: boolean) => {
         if (!adminMode) return;
+        if (sport != "americanfootball_nfl") return;
 
         try {
             // optimistic UI update
@@ -197,8 +198,9 @@ const GameScoresPage = () => {
             );
         }
     };
-    const handleToggleException = async (gameId: number, currentValue: boolean) => {
+    const handleToggleException = async (sport: string,gameId: number, currentValue: boolean) => {
         if (!adminMode) return;
+        if (sport != "americanfootball_nfl") return;
 
         try {
             // optimistic UI update
@@ -231,7 +233,7 @@ const GameScoresPage = () => {
         }
     };
 
-    const handleToggleChange = (event, newValues) => {
+    const handleDataViewToggleChange = (event, newValues) => {
         if (!newValues) return; // prevent all off state
 
         const prefs = {
@@ -241,7 +243,6 @@ const GameScoresPage = () => {
             gameCategoryToggle: newValues.includes('gameCategoryToggle'),
             gameOddsToggle: newValues.includes('gameOddsToggle'),
         };
-
         setShowTeamRecords(prefs.teamRecordsToggle);
         setShowTeamWinStreaks(prefs.streaksToggle);
         setShowGameDate(prefs.gameDateToggle);
@@ -249,10 +250,10 @@ const GameScoresPage = () => {
         setShowGameOdds(prefs.gameOddsToggle);
 
         // 🟦 persist to browser
-        localStorage.setItem("GameScoresTogglePrefs", JSON.stringify(prefs));
+        localStorage.setItem("GameScoresDataViewTogglePrefs", JSON.stringify(prefs));
     };
     useEffect(() => {
-        const saved = localStorage.getItem("GameScoresTogglePrefs");
+        const saved = localStorage.getItem("GameScoresDataViewTogglePrefs");
         if (saved) {
             const prefs = JSON.parse(saved);
             setShowTeamRecords(prefs.teamRecordsToggle);
@@ -260,6 +261,32 @@ const GameScoresPage = () => {
             setShowGameDate(prefs.gameDateToggle);
             setShowGameCategory(prefs.gameCategoryToggle);
             setShowGameOdds(prefs.gameOddsToggle);
+        }
+    }, []);
+    const handleGameViewToggleChange = (event, newValues) => {
+        if (!newValues) return; // prevent all off state
+
+        const prefs = {
+            allNFLGamesToggle: newValues.includes('allNFLGamesToggle'),
+            allNCAAFGamesToggle: newValues.includes('allNCAAFGamesToggle'),
+            allPrimetimeGamesToggle: newValues.includes('allPrimetimeGamesToggle'),
+
+        };
+
+        setShowAllNFLGames(prefs.allNFLGamesToggle);
+        setShowAllNCAAFGames(prefs.allNCAAFGamesToggle);
+        setShowAllPrimetimeGames(prefs.allPrimetimeGamesToggle);
+
+        // 🟦 persist to browser
+        localStorage.setItem("GameScoresGameViewTogglePrefs", JSON.stringify(prefs));
+    };
+    useEffect(() => {
+        const saved = localStorage.getItem("GameScoresGameViewTogglePrefs");
+        if (saved) {
+            const prefs = JSON.parse(saved);
+            setShowAllNFLGames(prefs.allNFLGamesToggle);
+            setShowAllNCAAFGames(prefs.allNCAAFGamesToggle);
+            setShowAllPrimetimeGames(prefs.allPrimetimeGamesToggle);
         }
     }, []);
 
@@ -296,36 +323,31 @@ const GameScoresPage = () => {
 
 // fetch teams and weeks whenever sport or season changes
     useEffect(() => {
-        if (!selectedSport || !selectedSeasonId) return;
+        if (!selectedSeasonId) return;
 
-        getTeamsAndWeeksBySportAndSeasonRestCall(selectedSport, selectedSeasonId)
-            .then(data => {
+        getMaxWeekSeasonRestCall(selectedSeasonId)
+            .then(maxWeekAvailable => {
                 // 🔥 Clear selectedWeek ONLY when it exceeds the maxAvailableWeek
                 setSelectedWeek(prevWeek => {
-                    if (prevWeek && prevWeek > data.maxWeekAvailable) {
+                    if (prevWeek && prevWeek > maxWeekAvailable) {
                         return null;   // <-- forces user to pick a valid week
                     }
                     return prevWeek;
                 });
-                setMaxAvailableWeek(data.maxWeekAvailable);
+                setMaxAvailableWeek(maxWeekAvailable);
 
             })
             .catch(err => {
                 setError('Failed to retrieve teams. ' + (err.message || 'Please try again.'));
-                setGameScorePageDTOs(null);
+                setGameScorePageDTOs([]);
             });
 
-    }, [selectedSport, selectedSeasonId]);
+    }, [selectedSeasonId]);
 
-
-// Clear table results whenever switching between team/week filters
-    useEffect(() => {
-        setGameScorePageDTOs([]);       // Clear table rows
-    }, [selectedSport]);
 
     // fetch game scores
     useEffect(() => {
-        if (selectedSeasonId === 0 || !selectedSport) return;
+        if (selectedSeasonId === 0) return;
 
 
         // WEEK mode guards
@@ -337,18 +359,17 @@ const GameScoresPage = () => {
         setError(null);
 
         try {
-            getGameScoresByWeekRestCall(selectedSport, selectedSeasonId, selectedWeek)
+            getGameScoresByWeekRestCall(selectedSeasonId, selectedWeek)
                 .then(data => setGameScorePageDTOs(data.records))
                 .catch(err => {
                     setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
-                    setGameScorePageDTOs(null);
+                    setGameScorePageDTOs([]);
                 });
 
         } finally {
             setLoading(false);
         }
     }, [
-        selectedSport,
         selectedSeasonId,
         selectedWeek,
         maxAvailableWeek
@@ -370,7 +391,7 @@ const GameScoresPage = () => {
         try {
             setSnappingScores(true);
             setError(null);
-            const gameScoreSnapStatus = await snapCompletedGameScoresRestCall(selectedSport, selectedSeasonId, selectedWeek);
+            const gameScoreSnapStatus = await snapCompletedGameScoresRestCall(selectedSeasonId, selectedWeek);
 
             // 🟦 Show disappearing tooltip
             setSnapScoresMessage(gameScoreSnapStatus || "Snap successful");
@@ -427,7 +448,7 @@ const GameScoresPage = () => {
         try {
             setSnappingPlayoffGames(true);
             setError(null);
-            const restCallReturnMessage = await createPlayoffGamesForSportRestCall(selectedSport);
+            const restCallReturnMessage = await createPlayoffGamesForSportRestCall();
 
             // 🟦 Show disappearing tooltip
             setPlayoffGamesRestCallReturnMessage(restCallReturnMessage || "Successful Created Playoff Games");
@@ -461,25 +482,40 @@ const GameScoresPage = () => {
         }
     };
 
-    if (loading) {
+        const filteredScores = useMemo(() => {
+            return gameScorePageDTOs.filter(gameScore => {
+                const isNFL = gameScore.sport === "americanfootball_nfl";
+                const isNCAAF = gameScore.sport === "americanfootball_ncaaf";
+                const isPrimetime = gameScore.primetime;
+                return (
+                    (showAllNFLGames && isNFL) ||
+                    (showAllNCAAFGames && isNCAAF) ||
+                    (showAllPrimetimeGames && isPrimetime) );
+            });
+        }, [
+            gameScorePageDTOs,
+            showAllNFLGames,
+            showAllNCAAFGames,
+            showAllPrimetimeGames
+        ]);
+
+        // Generate week options
+        const range = (start: number, end: number) =>
+            Array.from({length: end - start + 1}, (_, i) => start + i);
+
+        const weekOptions = range(1, maxAvailableWeek || 0).map(week => (
+            <MenuItem key={week} value={week}>
+                {week}
+            </MenuItem>
+        ));
+
+        if (loading) {
+            return (
+                <LoadingSpinner/>
+            );
+        }
+
         return (
-            <LoadingSpinner/>
-        );
-    }
-
-
-    // Generate week options
-    const range = (start: number, end: number) =>
-        Array.from({length: end - start + 1}, (_, i) => start + i);
-
-    const weekOptions = range(1, maxAvailableWeek).map(week => (
-        <MenuItem key={week} value={week}>
-            {week}
-        </MenuItem>
-    ));
-
-
-    return (
         <div>
             <Box sx={{p: 3}}>
                 <Box sx={{display: 'flex', alignItems: 'center', mb: 3}}>
@@ -489,26 +525,6 @@ const GameScoresPage = () => {
 
                 <Box sx={{display: 'flex', alignItems: "flex-end", gap: 2, mb: 3, flexWrap: 'wrap'}}>
 
-                    {/* Sport Selector */}
-                    <FormControl sx={{minWidth: 150}}>
-                        <InputLabel id="sport-selector-label">
-                            Spor<u>t</u>
-                        </InputLabel>
-                        <Select
-                            labelId="sport-selector-label"
-                            id="sportSelector"
-                            value={selectedSport || ''}
-                            label="Sport"
-                            accessKey="t"
-                            onChange={(e, value) => {
-                                setSelectedSport(e.target.value);
-                            }}
-                        >
-                            <MenuItem key="1" value="americanfootball_nfl">NFL</MenuItem>
-                            <MenuItem key="2" value="americanfootball_ncaaf">NCAAF</MenuItem>
-
-                        </Select>
-                    </FormControl>
                     {/* Season Selector */}
                     <FormControl sx={{minWidth: 150}}>
                         <InputLabel id="seasons-selector-label">
@@ -548,7 +564,10 @@ const GameScoresPage = () => {
                             {weekOptions}
                         </Select>
                     </FormControl>
-                    <ToggleButtonGroup
+                </Box>
+                <Box sx={{display: 'flex', alignItems: "flex-end", gap: 2, mb: 3, flexWrap: 'wrap'}}>
+
+                <ToggleButtonGroup
                         value={[
                             ...(showTeamRecords ? ['teamRecordsToggle'] : []),
                             ...(showTeamWinStreaks ? ['streaksToggle'] : []),
@@ -557,7 +576,7 @@ const GameScoresPage = () => {
                             ...(showGameOdds ? ['gameOddsToggle'] : []),
 
                         ]}
-                        onChange={handleToggleChange}
+                        onChange={handleDataViewToggleChange}
                         aria-label="Display options"
                         sx={{
                             height: 56,
@@ -575,13 +594,42 @@ const GameScoresPage = () => {
                         <ToggleButtonRenderer showToggle={showGameDate} toggleName="Game Date"
                                               toggleKey="gameDateToggle"
                                               Icon={ScheduleIcon}/>
-                        {selectedSport == 'americanfootball_nfl' && (
-                            <ToggleButtonRenderer showToggle={showGameCategory} toggleName="Game Category"
-                                                  toggleKey="gameCategoryToggle" Icon={StarIcon}/>)
-                        }
+                        <ToggleButtonRenderer showToggle={showGameCategory} toggleName="Game Category"
+                                              toggleKey="gameCategoryToggle" Icon={StarIcon}/>)
                         <ToggleButtonRenderer showToggle={showGameOdds} toggleName="Game Odds"
                                               toggleKey="gameOddsToggle"
                                               Icon={TrendingFlatIcon}/>
+                </ToggleButtonGroup>
+                    <ToggleButtonGroup
+                        value={[
+                            ...(showAllNFLGames ? ['allNFLGamesToggle'] : []),
+                            ...(showAllNCAAFGames ? ['allNCAAFGamesToggle'] : []),
+                            ...(showAllPrimetimeGames ? ['allPrimetimeGamesToggle'] : []),
+
+                        ]}
+                        onChange={handleGameViewToggleChange}
+                        aria-label="Display options"
+                        sx={{
+                            height: 56,
+                            borderRadius: 2,
+                            ml: adminMode ? 1 : 0,
+                            boxShadow: 1,
+                        }}
+                    >
+
+
+                    <ToggleButtonRenderer showToggle={showAllNCAAFGames} toggleName="All NCAAF Games"
+                                              toggleKey="allNCAAFGamesToggle"
+                                              Icon={ScheduleIcon}
+                                              imgSrc='https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png'/>
+                        <ToggleButtonRenderer showToggle={showAllNFLGames} toggleName="All NFL Games"
+                                              toggleKey="allNFLGamesToggle"
+                                              Icon={ScheduleIcon}
+                                              imgSrc='https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png'/>
+                        <ToggleButtonRenderer showToggle={showAllPrimetimeGames} toggleName="All Primetime Games"
+                                              toggleKey="allPrimetimeGamesToggle"
+                                              Icon={StarIcon}/>
+
                     </ToggleButtonGroup>
                 </Box>
                 <Box>
@@ -724,7 +772,7 @@ const GameScoresPage = () => {
 
                                 <TableCell>Score</TableCell>
                                 {showGameDate && <TableCell>Game Date</TableCell>}
-                                {selectedSport == 'americanfootball_nfl' && showGameCategory && (
+                                {showGameCategory && (
                                     <TableCell>
                                         <HeaderWithTooltip
                                             label="Game Rank"
@@ -732,17 +780,17 @@ const GameScoresPage = () => {
                                         />
                                     </TableCell>
                                 )}
-                                {selectedSport == 'americanfootball_nfl' && adminMode && (
+                                {adminMode && (
                                     <TableCell>Primetime</TableCell>
                                 )}
-                                {selectedSport == 'americanfootball_nfl' && adminMode && (
+                                {adminMode && (
                                     <TableCell>Exception</TableCell>
                                 )}
 
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {gameScorePageDTOs && gameScorePageDTOs.map((gameScorePageDTO, index) => {
+                            {filteredScores && filteredScores.map((gameScorePageDTO, index) => {
                                     const homeSpread = gameScorePageDTO.home_team_spread;
 
                                     return (
@@ -765,10 +813,10 @@ const GameScoresPage = () => {
                                                     record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.away_wins}-${gameScorePageDTO.away_losses}-${gameScorePageDTO.away_ties}`}
                                                     status={!gameScorePageDTO.completed ? "incomplete" : isAwayWinner(gameScorePageDTO) ? "Win" : isHomeWinner(gameScorePageDTO) ? "Loss" : "Push"}
                                                     onClickTeam={() => {
-                                                        launchESPNTeamSchedule(selectedSport, gameScorePageDTO.away_team_abbreviation,selectedSeasonId);
+                                                        launchESPNTeamSchedule(gameScorePageDTO.sport, gameScorePageDTO.away_team_abbreviation, selectedSeasonId);
                                                     }}
                                                     homeTeamSpread={null}  // this is the away team
-                                                    sport={selectedSport}
+                                                    sport={gameScorePageDTO.sport}
                                                 />
                                             </TableCell>
 
@@ -781,10 +829,10 @@ const GameScoresPage = () => {
                                                     record={!showTeamRecords || !gameScorePageDTO.completed ? '' : `${gameScorePageDTO.home_wins}-${gameScorePageDTO.home_losses}-${gameScorePageDTO.home_ties}`}
                                                     status={!gameScorePageDTO.completed ? "incomplete" : isHomeWinner(gameScorePageDTO) ? "Win" : isAwayWinner(gameScorePageDTO) ? "Loss" : "Push"}
                                                     onClickTeam={() => {
-                                                        launchESPNTeamSchedule(selectedSport,gameScorePageDTO.home_team_abbreviation,selectedSeasonId);
+                                                        launchESPNTeamSchedule(gameScorePageDTO.sport, gameScorePageDTO.home_team_abbreviation, selectedSeasonId);
                                                     }}
                                                     homeTeamSpread={!showGameOdds || (homeSpread == null || homeSpread == '') ? null : `(${homeSpread})`}
-                                                    sport={selectedSport}
+                                                    sport={gameScorePageDTO.sport}
                                                 />
                                             </TableCell>
                                             {showGameOdds ? (
@@ -798,7 +846,7 @@ const GameScoresPage = () => {
                                                 </TableCell>
                                             ) : null}
                                             <TableCell>
-                                                <ScoreCellRenderer game={gameScorePageDTO} sport={selectedSport}/>
+                                                <ScoreCellRenderer game={gameScorePageDTO} />
                                             </TableCell>
 
                                             {showGameDate && (
@@ -806,17 +854,20 @@ const GameScoresPage = () => {
                                                     {formatDate(gameScorePageDTO.commence_time, isMobile)}
                                                 </TableCell>
                                             )}
-                                            {selectedSport == 'americanfootball_nfl' && showGameCategory && (
-                                                <TableCell> <GameCategoryRenderer rankType={gameScorePageDTO.rank_type}
+                                            {showGameCategory && (
+                                                <TableCell>
+                                                    {gameScorePageDTO.sport === 'americanfootball_nfl' && (
+                                                    <GameCategoryRenderer rankType={gameScorePageDTO.rank_type}
                                                                                   homeRank={gameScorePageDTO.home_rank_preseason}
                                                                                   awayRank={gameScorePageDTO.away_rank_preseason}/>
+                                                        )}
                                                 </TableCell>
                                             )}
-                                            {selectedSport === 'americanfootball_nfl' && adminMode && (
+                                            {adminMode && (
                                                 <TableCell
                                                     onClick={() =>
                                                         adminMode &&
-                                                        handleTogglePrimetime(
+                                                        handleTogglePrimetime(gameScorePageDTO.sport,
                                                             gameScorePageDTO.game_id, gameScorePageDTO.primetime
                                                         )
                                                     }
@@ -838,11 +889,11 @@ const GameScoresPage = () => {
                                                     </Tooltip>
                                                 </TableCell>
                                             )}
-                                            {selectedSport === 'americanfootball_nfl' && adminMode && (
+                                            { adminMode && (
                                                 <TableCell
                                                     onClick={() =>
                                                         adminMode &&
-                                                        handleToggleException(
+                                                        handleToggleException(gameScorePageDTO.sport,
                                                             gameScorePageDTO.game_id, gameScorePageDTO.exception
                                                         )
                                                     }
