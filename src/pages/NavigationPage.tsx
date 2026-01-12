@@ -343,7 +343,7 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
                     >
                         <AccountBalanceWalletIcon sx={{mr: 1}}/>
                         <Typography variant="body1" sx={{fontWeight: 'bold'}}>
-                            ${accountBalance !== null ? accountBalance.toFixed(0) : '0'}
+                            ${accountBalance !== null ? accountBalance.toFixed(2) : '0'}
                         </Typography>
                     </Box>
 

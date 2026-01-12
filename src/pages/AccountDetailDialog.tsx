@@ -29,7 +29,7 @@ const AccountDetailDialog = ({ open, onClose, accountDetail, loading }) => {
 
     const formatAmount = (amount) => {
         if (amount === null || amount === undefined) return '';
-        return `$${Math.abs(amount).toFixed(0)}`;
+        return `$${Math.abs(amount).toFixed(2)}`;
     };
 
     const { rowData, debitTotal, creditTotal } = useMemo(() => {
@@ -107,10 +107,10 @@ const AccountDetailDialog = ({ open, onClose, accountDetail, loading }) => {
                                                 Subtotals:
                                             </TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 'bold', borderTop: 2 }}>
-                                                ${debitTotal.toFixed(0)}
+                                                {formatAmount(debitTotal)}
                                             </TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 'bold', borderTop: 2 }}>
-                                                ${creditTotal.toFixed(0)}
+                                                {formatAmount(creditTotal)}
                                             </TableCell>
                                         </TableRow>
                                     </>
