@@ -358,7 +358,19 @@ const WeeklyPickemsPage = () => {
                 </Tooltip>
             </Box>
 
-            {weeklyPickemRecords.map((record) => (
+            {weeklyPickemRecords.map((record) =>{
+                const isWeekCompleted = record.weeklyPickemDTOList.length > 0 &&
+                    record.weeklyPickemDTOList?.every(p => p.gameCompleted);
+
+                const pct = Number(record.week_win_pct);
+                const weekIcon =
+                pct === 0 ? '🌮'        // sombrero of shame
+                    : pct === 1 ? '👑'    // crown of glory
+                        : null;
+                const animateWeekIcon = isWeekCompleted && weekIcon !== null;
+                const weekIconSize = isMobile ? '1.4rem' : '2rem';
+
+                return (
                 <Card key={record.entry_id} sx={{
                     mb: 4,
                     borderRadius: 2,
@@ -369,10 +381,12 @@ const WeeklyPickemsPage = () => {
                     <Box
                         onClick={() => toggleCard(record.entry_id)}
                         sx={{
+                            position: 'relative', // 👈 REQUIRED
                             bgcolor: 'action.hover',
                             px: 1.5,
-                            py: isMobile ? 0.1 : 0.5, // 👈 shrink top/bottom padding on mobile
+                            py: isMobile ? 0.1 : 0.5,
                             borderBottom: '1px solid text.primary',
+                            overflow: 'hidden', // keeps icon inside card
                         }}
                     >
                         <Box
@@ -412,6 +426,68 @@ const WeeklyPickemsPage = () => {
                                     textAlign: isMobile ? 'left' : 'right',
                                 }}
                             >
+                                {weekIcon && isWeekCompleted && (
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '50%',
+                                            left: 0,
+                                            transform: 'translateY(-50%)',
+                                            fontSize: isMobile ? '1.4rem' : '1.6rem',
+                                            pointerEvents: 'none',
+                                            opacity: 0.85,
+                                            zIndex: 1,
+
+                                            animation:
+                                                pct === 1
+                                                    ? 'crownFloat 6.2s ease-in-out infinite'
+                                                    : pct === 0
+                                                        ? 'sombreroChaos 4.0s linear infinite'
+                                                        : 'none',
+
+                                            '@keyframes crownFloat': {
+                                                '0%': {
+                                                    transform: 'translate(0%, -50%) scale(1)',
+                                                },
+                                                '25%': {
+                                                    transform: 'translate(30vw, -70%) scale(1.5)',
+                                                },
+                                                '50%': {
+                                                    transform: 'translate(70vw, -50%) scale(1.05) rotate(20deg)',
+                                                },
+                                                '75%': {
+                                                    transform: 'translate(30vw, -80%) scale(1.1)',
+                                                },
+                                                '100%': {
+                                                    transform: 'translate(0%, -50%) scale(1)',
+                                                },
+                                            },
+
+                                            '@keyframes sombreroChaos': {
+                                                '0%': {
+                                                    transform: 'translate(0%, -50%) rotate(0deg)',
+                                                },
+                                                '15%': {
+                                                    transform: 'translate(20vw, -30%) rotate(-15deg)',
+                                                },
+                                                '30%': {
+                                                    transform: 'translate(35vw, -70%) rotate(20deg)',
+                                                },
+                                                '50%': {
+                                                    transform: 'translate(60vw, -40%) rotate(-25deg)',
+                                                },
+                                                '70%': {
+                                                    transform: 'translate(80vw, -75%) rotate(18deg)',
+                                                },
+                                                '100%': {
+                                                    transform: 'translate(0%, -50%) rotate(0deg)',
+                                                },
+                                            },
+                                        }}
+                                    >
+                                        {weekIcon}
+                                    </Box>
+                                )}
                                 WEEK: {record.week_wins}-{record.week_losses}-{record.week_pushes}
                             </Typography>
 
@@ -636,10 +712,10 @@ const WeeklyPickemsPage = () => {
                         </CardContent>
                     </Collapse>
                 </Card>
-            ))}
+            )})}
 
             {weeklyPickemRecords.length === 0 && !loading && (
-                <Typography variant="body1" sx={{textAlign: 'center', mt: 4}}>
+                <Typography variant="body1" sx={{textAlign: 'center', mt: 4,color: 'warning.main'}}>
                     No records found for the selected week.
                 </Typography>
             )}

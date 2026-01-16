@@ -42,6 +42,7 @@ import type {WeekRollEvent} from "../types/ZEvents";
 
 import WeeklyPickemsPage from './pickem/WeeklyPickemsPage.tsx';
 import MyPickemsPage from './pickem/MyPickemsPage.tsx';
+import PickemLeaderboardPage from './pickem/PickemLeaderboardPage.tsx'
 import LoadingSpinner from "../components/LoadingSpinner.tsx";
 
 
@@ -213,7 +214,7 @@ const NavigationPage = ({colorMode, toggleColorMode}: {
         const pickemTabs = [
             {id: 'myPickem', label: 'My Pickem', element: <MyPickemsPage/>},
             {id: 'pickemWeekly', label: 'Weekly Pickem', element: <WeeklyPickemsPage/>},
-            {id: 'pickemLeaderboard', label: 'Leaderboard', element: <GameScoresPage/>},
+            {id: 'pickemLeaderboard', label: 'Leaderboard', element: <PickemLeaderboardPage/>},
             {id: 'gameScores', label: 'Game Scores', element: <GameScoresPage/>},
             commonAdminTab,
         ];

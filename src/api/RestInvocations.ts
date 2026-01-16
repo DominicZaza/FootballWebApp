@@ -5,7 +5,8 @@ import type {
     EntryDTO,
     SeasonDTO,
     LeaderBoardDTO, WeeklyPicksPageDTO, MyGamesPageResponse, PickSubmission, PickemSubmission, GameScoresPageResponse,
-    TeamsForScorePageResponse, TeamRankingDTO, WeeklyPickemCardDTO, SeasonWeekDTO, MyPickemsGamesDTO, MyPickemsPageDTO
+    TeamsForScorePageResponse, TeamRankingDTO, WeeklyPickemCardDTO, SeasonWeekDTO, MyPickemsGamesDTO, MyPickemsPageDTO,
+    PickemLeaderBoardPageDTO
 } from "../types/ZTypes";
 
 export const getTeamLogoUrl = (
@@ -161,14 +162,18 @@ export const useRestApi = () => {
     const getWeeklyPickemByPoolInstanceAndPeriodRestCall = async (poolInstanceId: number,period: string): Promise<WeeklyPickemCardDTO[]> => {
         return await makeRestCall(`/pickems/poolInstanceId/${poolInstanceId}/period/${period}`);
     };
+    const getPickemLeaderboardByPoolInstanceRestCall = async (poolInstanceId: number): Promise<PickemLeaderBoardPageDTO> => {
+        return await makeRestCall(`/pickems/leaderboard/poolInstanceId/${poolInstanceId}`);
+    };
+
     const rollWeekRestCall = async (): Promise<string> => {
         return await makeRestCall(`/games/rollWeek`, 'PUT');
     };
     const submitPickRestCall = async (pick: PickSubmission): Promise<string> => {
         return await makeRestCall(`/picks/submit`, 'POST',JSON.stringify(pick));
     };
-    const createPlayoffGamesForSportRestCall = async (sport: string): Promise<string> => {
-        return await makeRestCall(`/games/downloadPlayoffGames/sport/${sport}`, 'PUT');
+    const createPlayoffGamesForSportRestCall = async (): Promise<string> => {
+        return await makeRestCall(`/games/downloadPlayoffGames/`, 'PUT');
     };
     const getSeasonWeekPeriodsBySeasonAndPoolTypeIdRestCall = async (season: number, poolTypeId: number): Promise<SeasonWeekDTO[]> => {
         return await makeRestCall(`/seasonweek/season/${season}/poolType/${poolTypeId}`, 'GET');
@@ -231,7 +236,9 @@ export const useRestApi = () => {
         togglePrimetimeRestCall,
         toggleExceptionRestCall,
         submitPickemRestCall,
-        updateGameDateTimesRestCall
+        updateGameDateTimesRestCall,
+        getPickemLeaderboardByPoolInstanceRestCall
+
      };
 
 };

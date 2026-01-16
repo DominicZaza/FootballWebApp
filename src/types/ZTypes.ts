@@ -297,11 +297,13 @@ export interface WeeklyPickemCardDTO {
     week_wins: number;
     week_losses: number;
     week_pushes: number;
-    week_pending: number;
+    week_win_pct: string;
     total_wins: number;
     total_losses: number;
     total_pushes: number;
-    total_win_pct: number;
+    total_win_pct: string;
+    trophy_count: number;
+    sombrero_count: number;
     weeklyPickemDTOList: WeeklyPickemDTO[];
 }
 
@@ -367,4 +369,31 @@ export interface PickemEntryControl{
     total_pushes: number,
     pickAllowed: boolean
 }
+
+export interface PoolBalanceDTO {
+    entryId: number,
+    balance: number,
+    period: number
+}
+export interface PickemRecordDTO {
+    entry_id: number,
+    entry_name: string,
+    period: number,
+    week_wins: number,
+    week_losses: number,
+    week_pushes: number,
+    week_win_pct: string,
+    total_wins: number,
+    total_losses: number,
+    total_pushes: number,
+    total_win_pct: string,
+    trophy_count: number,
+    sombrero_count: number
+}
+
+export interface PickemLeaderBoardPageDTO{
+    pickems:  PickemRecordDTO[];
+    balances: PoolBalanceDTO[];
+}
+
 

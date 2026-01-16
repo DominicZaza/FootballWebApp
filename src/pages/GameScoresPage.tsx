@@ -1,5 +1,5 @@
 import {useZAppContext} from '../components/AppContextProvider.tsx';
-import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.js';
+import {getTeamLogoUrl, useRestApi} from '../api/RestInvocations.ts';
 import {ToggleButtonGroup, Tooltip, Typography} from "@mui/material";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import RepeatIcon from "@mui/icons-material/Repeat";
@@ -347,28 +347,28 @@ const GameScoresPage = () => {
 
     // fetch game scores
     useEffect(() => {
-        if (selectedSeasonId === 0) return;
+        if (!selectedSeasonId) return;
 
 
         // WEEK mode guards
-        if (maxAvailableWeek === null) return;             // ⛔ DO NOT FETCH YET
         if (selectedWeek == null) return;
-        if (selectedWeek > maxAvailableWeek) return;        // ⛔ Prevent invalid fetch
+        if (maxAvailableWeek !== null && selectedWeek > maxAvailableWeek) return;
 
         setLoading(true);
         setError(null);
 
-        try {
             getGameScoresByWeekRestCall(selectedSeasonId, selectedWeek)
-                .then(data => setGameScorePageDTOs(data.records))
+                .then(data => {
+                    setGameScorePageDTOs(data.records);
+                    setLoading(false);
+                })
                 .catch(err => {
                     setError('Failed to retrieve game scores. ' + (err.message || 'Please try again.'));
                     setGameScorePageDTOs([]);
+                    setLoading(false);
                 });
 
-        } finally {
-            setLoading(false);
-        }
+
     }, [
         selectedSeasonId,
         selectedWeek,
@@ -718,7 +718,7 @@ const GameScoresPage = () => {
                                 sx={{height: 56}}
                             >
                                 {snappingPlayoffGames ?
-                                    <CircularProgress size={24}/> : 'Create Playoff Games For Sport'}
+                                    <CircularProgress size={24}/> : 'Create Playoff Games'}
                             </Button>
                         </Tooltip>
                     )}
